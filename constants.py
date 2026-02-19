@@ -7,6 +7,7 @@ path_annotator_poi = Path(basepath, "input", "userstudy", "pois")
 path_train_poi = Path(basepath, "input", "train", "pois")
 path_mrk = Path(basepath, "pois_mrk")
 out_userstudy = Path(basepath, "results", "userstudy")
+out_voting = Path(basepath, "results", "voting")
 
 out_userstudy.mkdir(exist_ok=True, parents=True)
 
