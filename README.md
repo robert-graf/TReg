@@ -1,8 +1,5 @@
 # TReg
-
-<h1 align="center">
 <img src="https://github.com/robert-graf/TReg/blob/main/figures/logo.png" width="200">
-</h1><br>
 
 ## Installation Guide
 
