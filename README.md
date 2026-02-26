@@ -1,5 +1,9 @@
 # TReg
-![TRex, the TReg mascot](https://github.com/robert-graf/TReg/blob/main/figures/logo.png?raw=true)
+
+<h1 align="center">
+<img src="https://github.com/robert-graf/TReg/blob/main/figures/logo.png" width="300">
+</h1><br>
+
 
 ---
 
