@@ -435,9 +435,9 @@ def compute_run_times(paths: list[Path], drop_n=3):
     trimmed = durations_sorted[:-drop_n]
 
     return {
-        "mean": trimmed.mean(),
-        "median": np.median(trimmed),
-        "std": trimmed.std(),
+        "time mean [s]": trimmed.mean(),
+        "time median[s]": np.median(trimmed),
+        "time std [s]": trimmed.std(),
         "all_durations": durations,
         "used_durations": trimmed,
     }
@@ -536,10 +536,10 @@ if __name__ == "__main__":
         if out_file is None:
             continue
         stats = compute_run_times(out_file, drop_n=3)
-        print(str(c))
-        print(f"Average runtime (trimmed): {stats['mean']:.2f} s")
-        print(f"Median runtime: {stats['median']:.2f} s")
-        print(f"Std runtime: {stats['std']:.2f} s")
+        # print(str(c))
+        # print(f"Average runtime (trimmed): {stats['mean']:.2f} s")
+        # print(f"Median runtime: {stats['median']:.2f} s")
+        # print(f"Std runtime: {stats['std']:.2f} s")
         del stats["all_durations"]
         del stats["used_durations"]
         time["treg_" + key] = stats
