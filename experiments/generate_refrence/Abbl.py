@@ -1,9 +1,12 @@
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
+from scipy.stats import ttest_rel, wilcoxon
 from TPTBox import BIDS_FILE, NII, POI_Global, Print_Logger, to_nii
 from TPTBox.core.vert_constants import Full_Body_Instance, Lower_Body
 from TPTBox.registration import Template_Registration
@@ -70,9 +73,6 @@ def to_mrk(path_train_poi: Path, out_folder: Path):
         if out_mrk.exists():
             continue
         poi = POI_Global.load(i)
-        # if u in flips_model:
-        #    poi.map_labels_(mapp_models_filp)
-        # if "Robert_Model" not in u:
         if mapping1 is None:
             mapping1 = poi.info["label_name"].copy()
             mapping2 = poi.info["label_group_name"].copy()
@@ -81,33 +81,12 @@ def to_mrk(path_train_poi: Path, out_folder: Path):
             if mapping1 != poi.info["label_name"]:
                 for k, v in mapping1.items():
                     if k not in poi.info["label_name"] or v != poi.info["label_name"][k]:
-                        print(
-                            k,
-                            v,
-                            key,
-                            name__,
-                            k not in poi.info["label_name"],
-                            raters_all,
-                        )
+                        print(k, v, key, name__, k not in poi.info["label_name"], raters_all)
 
             assert mapping2 == poi.info["label_group_name"], (
                 mapping2,
                 poi.info["label_group_name"],
             )
-        # else:
-        #    mapping = Lower_Body.get_mapping()
-        #    assert mapping2 is not None
-        #    label_map_full = {}
-        #    for k, v in mapping1.items():
-        #        # print(k, v)
-        #        # print(type(k))
-        #        a, b = mapping[v]
-        #        c, d = str(k).replace("(", "").replace(")", "").split(",")
-        #        label_map_full[a.value, b.value] = int(c), int(d)
-        #    poi.map_labels_(label_map_full)
-        #    poi.info["label_name"] = mapping1
-        #    poi.info["label_group_name"] = mapping2
-        # all_data[u][key] = {"file": i, "poi": poi}
         if poi.info.get("Side") is None:
             poi.info["Side"] = side.upper()
         out_mrk.parent.mkdir(exist_ok=True, parents=True)
@@ -128,6 +107,7 @@ def run_all(
     mse=1,
     dice=0.01,
     com=0.001,
+    no_inference=False,
 ):
 
     weights: dict = {
@@ -136,7 +116,7 @@ def run_all(
         "Dice": dice,
         "Tether": com,
     }
-    print(f"{min_delta=}")
+    out_paths = []
     for i in (folder).iterdir():
         poi = POI_Global.load(i)
         bf = BIDS_FILE(i, local_folder)
@@ -148,6 +128,7 @@ def run_all(
             / f"sub-{bf.get('sub')!s}_ses-{bf.get('ses')!s}_sequ-{bf.get('sequ')!s}_seg-VIBESeg-11-lr_msk.nii.gz"
         )
         fetch(moving_path, True)
+
         # continue
         if not moving_path.exists():
             continue
@@ -156,8 +137,11 @@ def run_all(
         mirror = "LEFT" not in i.name.upper()
 
         out = out_folder / i.name
+        out_paths.append(out)
         if out.exists():
             continue
+        if no_inference:
+            return None
         # assert not mirror
         moving_img = to_nii(moving_path, True)
         if mirror:
@@ -185,28 +169,53 @@ def run_all(
         atlas_reg = reg.transform_poi(poi)  # Transferring the atlas
         atlas_reg.info = poi.info
         atlas_reg.to_global().save_mrk(out)
-        print(mirror)
+    return out_paths
 
 
 def robust_mean(points, k=3.5):
     """
-    points: (N, 3) array
+    points: (N, 3) array-like
     returns: (3,) robust mean
     """
-    points = np.asarray(points)
+    points = np.asarray(points, dtype=float)
+
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError(f"Expected (N,3) points, got {points.shape}")
+
+    # ── 1. Remove invalid points ──────────────────────────────────────────────
+    valid_mask = np.isfinite(points).all(axis=1)
+    points = points[valid_mask]
+
+    if len(points) == 0:
+        return np.array([np.nan, np.nan, np.nan])
 
     if len(points) == 1:
         return points[0]
 
+    # ── 2. Median-based robust filtering ──────────────────────────────────────
     median = np.median(points, axis=0)
+
+    if not np.isfinite(median).all():
+        # extreme corner case
+        return np.mean(points, axis=0)
+
     dists = np.linalg.norm(points - median, axis=1)
 
-    mad = np.median(np.abs(dists - np.median(dists)))
-    if mad == 0:
+    med_dist = np.median(dists)
+    mad = np.median(np.abs(dists - med_dist))
+
+    # ── 3. Degenerate case ────────────────────────────────────────────────────
+    if mad == 0 or not np.isfinite(mad):
         return median
 
-    mask = dists < k * mad
-    return points[mask].mean(axis=0)
+    mask = dists <= k * mad
+    inliers = points[mask]
+
+    # ── 4. Fallback if filtering removed everything ───────────────────────────
+    if len(inliers) == 0:
+        return median
+
+    return np.mean(inliers, axis=0)
 
 
 def aggregate(out_folder: Path):
@@ -220,19 +229,224 @@ def aggregate(out_folder: Path):
         poi_in = POI_Global.load(file)  #
         assert poi_in.itk_coords == poi_out.itk_coords
         for k1, k2, v in poi_in.items():
-            lid = k1 * 10 + k2
+            lid = k1 * 100 + k2
             poi_out[idx, lid] = v
             points_by_id[lid].append(v)
 
     # compute robust representative per landmark
     for lid, pts in points_by_id.items():
         pts = np.asarray(pts)
-        poi_out_mean[lid // 10, lid % 10] = robust_mean(pts)
+        poi_out_mean[lid // 100, lid % 100] = robust_mean(pts)
+    if poi_in is None:
+        return
     poi_out_mean.info = poi_in.info  # type: ignore
     (out_voting / out_folder.name).mkdir(exist_ok=True, parents=True)
     poi_out.save_mrk(out_voting / out_folder.name / "all.mrk.json", split_by_subregion=True)
 
     poi_out_mean.save_mrk(out_voting / out_folder.name / "mean.mrk.json")
+
+
+def compute_agreement_scores(all_mrk: Path, mean_mrk: Path):
+    """
+    Returns per-landmark and global agreement scores.
+    """
+    poi_all = POI_Global.load(all_mrk)
+    poi_mean = POI_Global.load(mean_mrk)
+
+    dists_by_lid = defaultdict(list)
+    # collect distances
+    for e, k, v in poi_all.items():
+        k1 = k // 100
+        k2 = k % 100
+        lid = k
+        # lid = k1 * 10 + k2
+        if (k1, k2) not in poi_mean:
+            continue
+        v_mean = poi_mean[k1, k2]
+        d = np.linalg.norm(np.asarray(v) - np.asarray(v_mean))
+        dists_by_lid[lid].append(d)
+    # summarize per landmark
+    rows = []
+    for lid, dists in dists_by_lid.items():
+        dists = np.asarray(dists)
+        rows.append(
+            {
+                "lid": lid,
+                "mean_dist": dists.mean(),
+                "median_dist": np.median(dists),
+                "p95_dist": np.percentile(dists, 95),
+                "std_dist": dists.std(),
+            }
+        )
+
+    df_lid = pd.DataFrame(rows)
+    # global scores
+    global_scores = {
+        "mean_dist": df_lid["mean_dist"].mean(),
+        "median_dist": df_lid["median_dist"].median(),
+        "p95_dist": df_lid["p95_dist"].mean(),
+        "std_dist": df_lid["std_dist"].mean(),
+    }
+
+    return df_lid, global_scores
+
+
+def evaluate_all_experiments(out_voting: Path):
+    rows = []
+    per_lid_tables = {}
+
+    for exp in sorted(out_voting.iterdir()):
+        if "_" not in exp.name:
+            continue
+        logger.on_log(exp)
+        mean_mrk = exp / "mean.mrk.json"
+        all_mrk = exp / "all.mrk.json"
+        if not mean_mrk.exists() or not all_mrk.exists():
+            continue
+
+        df_lid, scores = compute_agreement_scores(all_mrk, mean_mrk)
+
+        scores["experiment"] = exp.name  # type: ignore
+        rows.append(scores)
+        per_lid_tables[exp.name] = df_lid
+
+    df_global = pd.DataFrame(rows).set_index("experiment")
+    return df_global, per_lid_tables
+
+
+def compute_pvalues(per_lid_tables, baseline_key, score="mean_dist"):
+    base = per_lid_tables[baseline_key].set_index("lid")[score]
+
+    rows = []
+    for key, df in per_lid_tables.items():
+        if key == baseline_key:
+            continue
+
+        cur = df.set_index("lid")[score]
+        common = base.index.intersection(cur.index)
+
+        b = base.loc[common]
+        c = cur.loc[common]
+
+        # choose test
+        try:
+            stat, p = wilcoxon(b, c)
+            test = "wilcoxon"
+        except ValueError:
+            stat, p = ttest_rel(b, c)
+            test = "ttest"
+
+        rows.append(
+            {
+                "experiment": key,
+                "score": score,
+                "p_value": p,
+                "test": test,
+            }
+        )
+
+    return pd.DataFrame(rows).set_index("experiment")
+
+
+def plot_score(df, score, baseline=None):
+    fig = px.bar(
+        df.reset_index(),
+        x="experiment",
+        y=score,
+        title=f"Ablation Study – {score}",
+    )
+
+    if baseline is not None:
+        y0 = df.loc[baseline, score]
+        fig.add_hline(
+            y=y0,
+            line_dash="dash",
+            annotation_text="baseline",
+            annotation_position="top left",
+        )
+
+    fig.update_layout(
+        xaxis_tickangle=-45,
+        yaxis_title="Distance [mm]",
+        template="plotly_white",
+    )
+    fig.write_image(out_voting / f"boxplot_{score}.png")
+
+
+def parse_experiment_name(name: str):
+    """
+    'lr-0.01_dice-0.1' → {'lr': 0.01, 'dice': 0.1}
+    """
+    params = {}
+    for part in name.split("_"):
+        if "-" not in part:
+            continue
+        k, v = part.split("-", 1)
+        try:
+            v = float(v)
+            if v.is_integer():
+                v = int(v)
+        except ValueError:
+            pass
+        params[k] = v
+    return params
+
+
+def diff_label(exp_params, base_params):
+    """
+    Returns compact label showing only changed parameters.
+    """
+    diffs = []
+    for k, v in exp_params.items():
+        if k not in base_params:
+            continue
+        if base_params[k] != v:
+            diffs.append(f"{k}={v}")
+
+    if not diffs:
+        return "baseline"
+
+    return ",".join(diffs)
+
+
+def file_creation_time(path: Path) -> float:
+    """
+    Returns creation time in seconds since epoch.
+    On Linux, this is metadata change time (still monotonic enough for deltas).
+    """
+    return os.path.getctime(path)
+
+
+def compute_run_times(paths: list[Path], drop_n=3):
+    """
+    paths: list of output files returned by run_all (in execution order)
+    drop_n: number of largest outliers to remove
+    """
+    times = np.array([file_creation_time(p) for p in paths])
+
+    # duration per run = difference between consecutive creations
+    durations = np.diff(times)
+
+    if len(durations) <= drop_n:
+        raise ValueError("Not enough runs to drop outliers", len(durations))
+
+    # drop largest outliers
+    durations_sorted = np.sort(durations)
+    trimmed = durations_sorted[:-drop_n]
+
+    return {
+        "mean": trimmed.mean(),
+        "median": np.median(trimmed),
+        "std": trimmed.std(),
+        "all_durations": durations,
+        "used_durations": trimmed,
+    }
+
+
+def change_to_label(change: dict):
+    if not change:
+        return "baseline"
+    return ",".join(f"{k}={v}" for k, v in change.items())
 
 
 if __name__ == "__main__":
@@ -274,8 +488,12 @@ if __name__ == "__main__":
         {"lr": 0.0001},
         {"lr": 0.00001},
         ###########
-        {"min_delta": 0.000001},
-        # {"min_delta": 0.001},
+        {"min_delta": 0.01},
+        {"min_delta": 0.001},
+        {"min_delta": 0.0001},
+        # {"min_delta": 0.000001},
+        {"min_delta": 0.0000001},
+        {"min_delta": 0.00000001},
         {"min_delta": 0.000000001},
         ###########
         # {"pyramid_levels": 4, "coarsest_level": 3},
@@ -284,12 +502,12 @@ if __name__ == "__main__":
         ##########
         {"be": 0.0},
         {"be": 0.001},
-        {"be": 0.00001},
+        # {"be": 0.00001},
         {"be": 0.0000001},
         {"be": 0.000000001},
         {"be": 0.1},
         ##########
-        {"mse": 1},
+        # {"mse": 1},
         {"mse": 0},
         {"mse": 10},
         {"mse": 0.1},
@@ -304,6 +522,7 @@ if __name__ == "__main__":
         #########
         {"dice": 0, "com": 0},
     ]
+    time = {}
     for c in changes:
         di = default_dict.copy()
         for k, v in c.items():
@@ -312,5 +531,57 @@ if __name__ == "__main__":
         target = to_nii(target, True)
         out_folder = path_train_poi.parent / f"treg_{key}"
         out_folder.mkdir(exist_ok=True)
-        run_all(out_mrk, target, out_folder, **di)
+
+        out_file = run_all(out_mrk, target, out_folder, **di, no_inference=True)
+        if out_file is None:
+            continue
+        stats = compute_run_times(out_file, drop_n=3)
+        print(str(c))
+        print(f"Average runtime (trimmed): {stats['mean']:.2f} s")
+        print(f"Median runtime: {stats['median']:.2f} s")
+        print(f"Std runtime: {stats['std']:.2f} s")
+        del stats["all_durations"]
+        del stats["used_durations"]
+        time["treg_" + key] = stats
         aggregate(out_folder)
+        # break
+
+    df_global, per_lid = evaluate_all_experiments(out_voting)
+    # TODO replace the name with only what changed in the dict. Remove _ and -
+    baseline = df_global.index[0]  # or explicit name
+
+    df_p = compute_pvalues(per_lid, baseline, score="mean_dist")
+    df_final = df_global.join(df_p[["p_value"]])
+
+    ###
+    rename_map = {}
+    df_index = list(df_final.index)
+
+    for i, change in enumerate(changes):
+        di = default_dict.copy()
+        for k, v in change.items():
+            di[k] = v
+        key = "_".join(f"{k}-{v}" for k, v in di.items())
+
+        old_name = "treg_" + key
+        # assert old_name in df_index, (old_name, df_index)
+        new_name = change_to_label(change)
+        rename_map[old_name] = new_name
+    rename_map["treg"] = "baseline-"
+    rename_map["treg10"] = "min_delta=0.000001"
+    rename_map["treg100"] = "min_delta=0.0000001"
+    rename_map["treg1000"] = "min_delta=0.00000001"
+    df_time = pd.DataFrame.from_dict(time, orient="index")
+    print(df_time)
+    # Now join with df_final safely
+    df_final = df_final.join(df_time, how="left")
+    # rename_map["baseline"] = "treg"
+    # rename_map["baseline"] = "treg"
+    df_final = df_final.rename(index=rename_map)
+    baseline = rename_map.get(baseline, baseline)
+    ###
+
+    print(df_final.round(5).sort_values("mean_dist"))
+    df_final.to_excel(out_voting / "summery.xlsx")
+    for score in ["mean_dist", "median_dist", "p95_dist"]:
+        plot_score(df_final.sort_values("mean_dist"), score, baseline)

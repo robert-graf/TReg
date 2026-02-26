@@ -176,23 +176,48 @@ def run_all(folder: Path, target: NII, out_folder: Path, min_delta=min_delta):
 
 def robust_mean(points, k=3.5):
     """
-    points: (N, 3) array
+    points: (N, 3) array-like
     returns: (3,) robust mean
     """
-    points = np.asarray(points)
+    points = np.asarray(points, dtype=float)
+
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError(f"Expected (N,3) points, got {points.shape}")
+
+    # ── 1. Remove invalid points ──────────────────────────────────────────────
+    valid_mask = np.isfinite(points).all(axis=1)
+    points = points[valid_mask]
+
+    if len(points) == 0:
+        return np.array([np.nan, np.nan, np.nan])
 
     if len(points) == 1:
         return points[0]
 
+    # ── 2. Median-based robust filtering ──────────────────────────────────────
     median = np.median(points, axis=0)
+
+    if not np.isfinite(median).all():
+        # extreme corner case
+        return np.mean(points, axis=0)
+
     dists = np.linalg.norm(points - median, axis=1)
 
-    mad = np.median(np.abs(dists - np.median(dists)))
-    if mad == 0:
+    med_dist = np.median(dists)
+    mad = np.median(np.abs(dists - med_dist))
+
+    # ── 3. Degenerate case ────────────────────────────────────────────────────
+    if mad == 0 or not np.isfinite(mad):
         return median
 
-    mask = dists < k * mad
-    return points[mask].mean(axis=0)
+    mask = dists <= k * mad
+    inliers = points[mask]
+
+    # ── 4. Fallback if filtering removed everything ───────────────────────────
+    if len(inliers) == 0:
+        return median
+
+    return np.mean(inliers, axis=0)
 
 
 def aggregate(out_folder: Path):
@@ -206,14 +231,14 @@ def aggregate(out_folder: Path):
         poi_in = POI_Global.load(file)  #
         assert poi_in.itk_coords == poi_out.itk_coords
         for k1, k2, v in poi_in.items():
-            lid = k1 * 10 + k2
+            lid = k1 * 100 + k2
             poi_out[idx, lid] = v
             points_by_id[lid].append(v)
 
     # compute robust representative per landmark
     for lid, pts in points_by_id.items():
         pts = np.asarray(pts)
-        poi_out_mean[lid // 10, lid % 10] = robust_mean(pts)
+        poi_out_mean[lid // 100, lid % 100] = robust_mean(pts)
     poi_out_mean.info = poi_in.info  # type: ignore
     (out_voting / out_folder.name).mkdir(exist_ok=True, parents=True)
     poi_out.save_mrk(out_voting / out_folder.name / "all.mrk.json", split_by_subregion=True)
