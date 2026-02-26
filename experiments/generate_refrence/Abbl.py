@@ -14,13 +14,6 @@ sys.path.append(out)
 from constants import POI_MAP, flips_model, mapp_models_filp, out_userstudy, out_voting, path_mrk, path_train_poi, raters_all
 
 logger = Print_Logger()
-lr: float = 0.001
-max_steps: int = 1500
-min_delta: float = 0.000001
-pyramid_levels: int = 4
-coarsest_level: int = 3
-finest_level: int = 0
-weights: dict = {"be": 0.00001, "seg": 1, "Dice": 0.01, "Tether": 0.001}
 
 leg_ids = [
     Full_Body_Instance.femur_left,
@@ -121,7 +114,28 @@ def to_mrk(path_train_poi: Path, out_folder: Path):
         poi.sort().save_mrk(out_mrk)
 
 
-def run_all(folder: Path, target: NII, out_folder: Path, min_delta=min_delta):
+def run_all(
+    folder: Path,
+    target: NII,
+    out_folder: Path,
+    lr: float = 0.001,
+    max_steps: int = 1500,
+    min_delta: float = 0.000001,
+    pyramid_levels: int = 4,
+    coarsest_level: int = 3,
+    finest_level: int = 0,
+    be=0.00001,
+    mse=1,
+    dice=0.01,
+    com=0.001,
+):
+
+    weights: dict = {
+        "be": be,
+        "seg": mse,
+        "Dice": dice,
+        "Tether": com,
+    }
     print(f"{min_delta=}")
     for i in (folder).iterdir():
         poi = POI_Global.load(i)
@@ -239,24 +253,64 @@ if __name__ == "__main__":
         / "sub-CTFU04045_ses-20220303_sequ-204_seg-VIBESeg-11-lr_msk.nii.gz"
     )
     fetch(target, True)
-
-    target = to_nii(target, True)
-    out_folder = path_train_poi.parent / "treg"
-    out_folder.mkdir(exist_ok=True)
-    run_all(out_mrk, target, out_folder)
-    aggregate(out_folder)
-    min_delta *= 0.1
-    out_folder = path_train_poi.parent / "treg10"
-    out_folder.mkdir(exist_ok=True)
-    run_all(out_mrk, target, out_folder, min_delta=min_delta)
-    aggregate(out_folder)
-    min_delta *= 0.1
-    out_folder = path_train_poi.parent / "treg100"
-    out_folder.mkdir(exist_ok=True)
-    run_all(out_mrk, target, out_folder, min_delta=min_delta)
-    aggregate(out_folder)
-    min_delta *= 0.1
-    out_folder = path_train_poi.parent / "treg1000"
-    out_folder.mkdir(exist_ok=True)
-    run_all(out_mrk, target, out_folder, min_delta=min_delta)
-    aggregate(out_folder)
+    default_dict = {
+        "lr": 0.001,
+        "max_steps": 1500,
+        "min_delta": 0.000001,
+        "pyramid_levels": 4,
+        "coarsest_level": 3,
+        "finest_level": 0,
+        "be": 0.00001,
+        "mse": 1,
+        "dice": 0.01,
+        "com": 0.001,
+    }
+    changes = [
+        {},
+        ###########
+        {"lr": 0.1},
+        {"lr": 0.01},
+        # {"lr": 0.001},
+        {"lr": 0.0001},
+        {"lr": 0.00001},
+        ###########
+        {"min_delta": 0.000001},
+        # {"min_delta": 0.001},
+        {"min_delta": 0.000000001},
+        ###########
+        # {"pyramid_levels": 4, "coarsest_level": 3},
+        {"pyramid_levels": 5, "coarsest_level": 4},
+        {"pyramid_levels": 3, "coarsest_level": 2},
+        ##########
+        {"be": 0.0},
+        {"be": 0.001},
+        {"be": 0.00001},
+        {"be": 0.0000001},
+        {"be": 0.000000001},
+        {"be": 0.1},
+        ##########
+        {"mse": 1},
+        {"mse": 0},
+        {"mse": 10},
+        {"mse": 0.1},
+        #########
+        {"dice": 0.1},
+        {"dice": 0},
+        {"dice": 0.001},
+        #########
+        {"com": 0},
+        {"com": 0.1},
+        {"com": 0.0000000001},
+        #########
+        {"dice": 0, "com": 0},
+    ]
+    for c in changes:
+        di = default_dict.copy()
+        for k, v in c.items():
+            di[k] = v
+        key = "_".join(f"{k}-{v}" for k, v in di.items())
+        target = to_nii(target, True)
+        out_folder = path_train_poi.parent / f"treg_{key}"
+        out_folder.mkdir(exist_ok=True)
+        run_all(out_mrk, target, out_folder, **di)
+        aggregate(out_folder)
