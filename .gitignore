@@ -214,3 +214,6 @@ old
 *.txt
 *.xlsx
 *.svg
+*.png
+*.zip
+*.nii.gz
