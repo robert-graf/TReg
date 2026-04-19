@@ -17,8 +17,53 @@ from constants import POI_MAP, flips_model, mapp_models_filp, out_userstudy, pat
 ############################################################################
 def main():
     all_data = {u: {} for u in raters_all}
-    mapping1 = None
-    mapping2 = None
+    mapping2 = {
+        1: "Femur proximal",
+        2: "Femur distal",
+        3: "Tibia proximal",
+        4: "Tibia distal",
+        5: "Patella",
+    }  # poi.info["label_name"].copy()
+    mapping1 = {
+        "(1, 1)": "TGT",
+        "(1, 2)": "FHC",
+        "(1, 3)": "FNC",
+        "(1, 4)": "FAAP",
+        "(2, 1)": "FLCD",
+        "(2, 2)": "FMCD",
+        "(2, 3)": "FLCP",
+        "(2, 4)": "FMCP",
+        "(2, 5)": "FNP",
+        "(2, 6)": "FADP",
+        "(2, 7)": "TGPP",
+        "(2, 8)": "TGCP",
+        "(2, 9)": "FMCPC",
+        "(2, 10)": "FLCPC",
+        "(2, 11)": "TRMP",
+        "(2, 12)": "TRLP",
+        "(3, 1)": "TLCL",
+        "(3, 2)": "TMCM",
+        "(3, 3)": "TKC",
+        "(3, 4)": "TLCA",
+        "(3, 5)": "TLCP",
+        "(3, 6)": "TMCA",
+        "(3, 7)": "TMCP",
+        "(3, 8)": "TTP",
+        "(3, 9)": "TAAP",
+        "(3, 10)": "TMIT",
+        "(3, 11)": "TLIT",
+        "(4, 1)": "FLM",
+        "(4, 2)": "TMM",
+        "(4, 3)": "TAC",
+        "(4, 4)": "TADP",
+        "(5, 1)": "PPP",
+        "(5, 2)": "PDP",
+        "(5, 3)": "PMP",
+        "(5, 4)": "PLP",
+        "(5, 5)": "PRPP",
+        "(5, 6)": "PRDP",
+        "(5, 7)": "PRHP",
+    }.copy()
     name__ = None
 
     ## Normalize data so i have not to deal with diffrences in path names.
@@ -41,30 +86,30 @@ def main():
             if sub == "CTFU04731":
                 continue
             poi = POI_Global.load(i)
+
             if u in flips_model:
                 poi.map_labels_(mapp_models_filp)
             if "Robert_Model" not in u:
-                if mapping1 is None:
-                    mapping1 = poi.info["label_name"].copy()
-                    mapping2 = poi.info["label_group_name"].copy()
-                    name__ = key
-                else:
-                    if mapping1 != poi.info["label_name"]:
-                        for k, v in mapping1.items():
-                            if k not in poi.info["label_name"] or v != poi.info["label_name"][k]:
-                                print(
-                                    k,
-                                    v,
-                                    key,
-                                    name__,
-                                    k not in poi.info["label_name"],
-                                    raters_all,
-                                )
+                if "SSM" in u.upper():
+                    poi.info["label_name"] = mapping1.copy()
+                    poi.info["label_group_name"] = mapping2.copy()
 
-                    assert mapping2 == poi.info["label_group_name"], (
-                        mapping2,
-                        poi.info["label_group_name"],
-                    )
+                if mapping1 != poi.info["label_name"]:
+                    for k, v in mapping1.items():
+                        if k not in poi.info["label_name"] or v != poi.info["label_name"][k]:
+                            print(
+                                k,
+                                v,
+                                key,
+                                name__,
+                                k not in poi.info["label_name"],
+                                raters_all,
+                            )
+
+                    # if "SSM" not in u.upper():
+
+                    assert mapping2 == poi.info["label_group_name"], (u, mapping2, poi.info["label_group_name"])
+
             else:
                 mapping = Lower_Body.get_mapping()
                 assert mapping2 is not None
@@ -95,6 +140,7 @@ def export_master_poi_table(raters, base_dir="pois_mrk", out_xlsx="master_poi_co
     for rater in raters:
         for f in (base_dir / rater).glob("*.mrk.json"):
             all_files.add(f.name)
+            print(len(all_files))
 
     all_files = sorted(all_files)
 
@@ -132,8 +178,9 @@ def export_master_poi_table(raters, base_dir="pois_mrk", out_xlsx="master_poi_co
 
     # hübsche Sortierung
     df = df.sort_values(["filename", "id"]).reset_index(drop=True)
-
+    print(out_xlsx)
     df.to_excel(out_xlsx, index=False)
+
     return df
 
 

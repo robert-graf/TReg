@@ -8,9 +8,23 @@ path_train_poi = Path(basepath, "input", "train", "pois")
 path_mrk = Path(basepath, "pois_mrk")
 out_userstudy = Path(basepath, "results", "userstudy")
 out_voting = Path(basepath, "results", "voting")
+out_atlas = Path(basepath, "data")
 
 out_userstudy.mkdir(exist_ok=True, parents=True)
 
+local_folder = Path("/media/data/robert/dataset-myelom/dataset-myelom")
+if not local_folder.exists():
+    local_folder = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom")
+derivatives_folder = "derivatives-VIBESeg-12-"
+# target_path = (
+#    local_folder / derivatives_folder / "CTFU03127" / "ses-20171206" / "sub-CTFU03127_ses-20171206_sequ-202_seg-VIBESeg-11-lr_msk.nii.gz"
+# )
+# atlas_path = "/media/data/robert/code/TReg/pois_mrk/sub-CTFU03127_ses-20171206_sequ-202_seg-fov2-reg-julius_V2_msk.nii.gz.seg.nrrd"
+target_path = (  # Old path
+    local_folder / derivatives_folder / "CTFU04045" / "ses-20220303" / "sub-CTFU04045_ses-20220303_sequ-204_seg-VIBESeg-11-lr_msk.nii.gz"
+)
+atlas_path = "/media/data/robert/code/TReg/pois_mrk/sub-CTFU04045_ses-20220303_sequ-204_seg-leg-s_T99D.seg.nrrd"
+# sub-CTFU03127_ses-20171206_sequ-202_seg-fov2
 raters_all = [
     "Julius/Julius_V1",
     "Julius/Julius_V2",
@@ -21,6 +35,7 @@ raters_all = [
     "Robert_Model_1",
     "Robert_Model_2",
     "Robert_Model_3",
+    # "SSM_Model_1",
 ]
 
 flips_model = [
@@ -84,6 +99,20 @@ POI_MAP = {
     "PRPP": (5, 5),
     "PRDP": (5, 6),
     "PRHP": (5, 7),
+}
+
+default_dict = {
+    "lr": 0.001,
+    "max_steps": 1500,
+    "min_delta": 0.000001,
+    "pyramid_levels": 4,
+    "coarsest_level": 3,
+    "finest_level": 0,
+    "be": 0.00001,
+    "mse": 1,
+    "dice": 0.01,
+    "com": 0.001,
+    "transform_name": "SVFFD",
 }
 
 

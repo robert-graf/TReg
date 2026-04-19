@@ -76,7 +76,7 @@ select = [
     "A",
     "C4",
     "ICN",
-    "G",
+    #"G",
     "INP",
     "PIE",
     "PYI",
