@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pingouin as pg
-from TPTBox import Print_Logger
+from TPTBox import Print_Logger, to_nii
 
 out = str(Path(__file__).parent.parent.parent)
 sys.path.append(out)
@@ -15,18 +15,28 @@ df_all["evaluator"] = df_all.apply(lambda row: rater_key[row.rater][0], axis=1)
 df_all["version"] = df_all.apply(lambda row: rater_key[row.rater][1], axis=1)
 
 
-angles = [
+angles = (
     "tibia_torsion_2D",
     "femoral_torsion_2D",
     "mLDFA",
     "MPTA",
     "HKA_2D",
-    "PDFA_sagittal_2D",
-    "PDFA_medial_3D",
-    "PDFA_lateral_3D",
+    "LPFA",
+    "MPFA",
+    "NSA",
+    "sagittal_HKA",
+    "JLCA",
     "tibial_slope_medial",
     "tibial_slope_lateral",
-]
+    "patella_tilt",
+    "PDFA",
+    # "trochlea_depth_lateral",
+    # "trochlea_depth_medial",
+    # "trochlea_angle",
+    # "PDFA_sagittal_2D",
+    # "PDFA_medial_3D",
+    # "PDFA_lateral_3D",
+)
 
 
 def angular_diff_deg(a, b):
@@ -79,9 +89,11 @@ def get_icc_groups():
     return {
         "intra": intra,
         "inter": inter,
+        "model": model,
         "human-model": pd.concat([humans, model]),
         "inter-model": pd.concat([inter, model]),
         "intra-model": pd.concat([intra, model]),
+        "inter-intra": pd.concat([inter, intra]),
     }
 
 
@@ -118,5 +130,9 @@ for group_name, df_g in groups.items():
 icc_df = pd.DataFrame(icc_results)
 Print_Logger().on_save(out_userstudy / "04c_angles_ICC.xlsx")
 icc_df.to_excel(out_userstudy / "04c_angles_ICC.xlsx", index=False)
-
-print(icc_df)
+stats = icc_df.groupby(["Group", "Angle"])["ICC_2_1"].agg(MAE="mean", SD="std", N="count").reset_index()
+stats["ICC_2_1±SD"] = stats.apply(lambda r: f"{r.MAE:.2f}", axis=1)
+table = stats.pivot(index="Angle", columns="Group", values="ICC_2_1±SD")
+table.to_excel(out_userstudy / "04c_summery.xlsx", index=True)
+print("\n ICC_2_1")
+print(table.to_string())

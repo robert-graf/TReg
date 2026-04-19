@@ -27,7 +27,7 @@ def get_groups():
     return {"intra": intra, "inter": inter, "model": model}
 
 
-def outgroup_euclid_fig():
+def outgroup_euclid_fig(to_mean=False):
     groups = get_groups()
     result = []
 
@@ -55,32 +55,144 @@ def outgroup_euclid_fig():
             coords1 = rows1[["X", "Y", "Z"]].values
             coords2 = rows2[["X", "Y", "Z"]].values
 
-            # Compute all pairwise distances between groups
-            for c1, c2 in product(coords1, coords2):
-                d = np.linalg.norm(c1 - c2)
-                result.append(
-                    {
-                        "filename": fname,
-                        "POI_name": poi,
-                        "group": f"{g1_name}-vs-{g2_name}",
-                        "abs_3d_diff": d,
-                    }
-                )
+            if to_mean:
+                c2 = coords2.mean(0)
+                # Compute all pairwise distances between groups
+                for c1 in product(coords1):
+                    # d = np.linalg.norm(c1 - c2, ord=2)
+                    # d2 = np.linalg.norm(c1 - c2, ord=1)
+                    euclid = np.sqrt(np.sum((c1 - c2) ** 2))
+                    absolute_dif = np.sum(np.abs(c1 - c2))
+                    result.append(
+                        {
+                            "filename": fname,
+                            "POI_name": poi,
+                            "group": f"{g1_name}-vs-{g2_name}",
+                            "euclid_3d_diff": euclid,
+                            "abs_3d_diff": absolute_dif,
+                        }
+                    )
+
+            else:
+                # Compute all pairwise distances between groups
+                for c1, c2 in product(coords1, coords2):
+                    # d = np.linalg.norm(c1 - c2, ord=2)
+                    # d2 = np.linalg.norm(c1 - c2, ord=1)
+                    euclid = np.sqrt(np.sum((c1 - c2) ** 2))
+                    absolute_dif = np.sum(np.abs(c1 - c2))
+                    result.append(
+                        {
+                            "filename": fname,
+                            "POI_name": poi,
+                            "group": f"{g1_name}-vs-{g2_name}",
+                            "euclid_3d_diff": euclid,
+                            "abs_3d_diff": absolute_dif,
+                        }
+                    )
 
     df_plot = pd.DataFrame(result)
     Print_Logger().on_save(out_userstudy / "03b_outgroup_distances_pair.xlsx")
 
     df_plot.to_excel(out_userstudy / "03b_outgroup_distances_pair.xlsx", index=False)
-
-    fig = px.box(df_plot, x="POI_name", y="abs_3d_diff", color="group", points="outliers")
+    ticks = [
+        "TGT",
+        "FHC",
+        "FNC",
+        "FAAP",
+        "FLCD",
+        "FMCD",
+        "FLCP",
+        "FMCP",
+        "FNP",
+        "FADP",
+        "TGPP",
+        "TGCP",
+        "FMCPC",
+        "FLCPC",
+        "TRMP",
+        "TRLP",
+        "TLCL",
+        "TMCM",
+        "TKC",
+        "TLCA",
+        "TLCP",
+        "TMCA",
+        "TMCP",
+        "TTP",
+        "TAAP",
+        "TMIT",
+        "TLIT",
+        "FLM",
+        "TMM",
+        "TAC",
+        "TADP",
+        "PPP",
+        "PDP",
+        "PMP",
+        "PLP",
+        "PRPP",
+        "PRDP",
+        "PRHP",
+    ]
+    # ticks = sorted(ticks)
+    fig = px.box(df_plot, x="POI_name", y="euclid_3d_diff", color="group", points="outliers", category_orders={"POI_name": ticks})
     fig.update_layout(
-        yaxis_title="Absolute 3D Euclidean Deviation [mm]",
+        yaxis_title="Euclid Differences [mm]",
         xaxis_title="Landmark (cross-group)",
         boxmode="group",
-        template="simple_white",
+        # template="simple_white",
     )
+    width = 1800
+    Print_Logger().on_save(out_userstudy / "03b_outgroup_distances_pair_euclid.svg")
+    fig.write_image(out_userstudy / "03b_outgroup_distances_pair_euclid.svg", width=width, height=500)
+    Print_Logger().on_save(out_userstudy / "03b_outgroup_distances_pair_small_euclid.svg")
+    fig.update_yaxes(range=[-1, 12], dtick=2)
+    fig.write_image(out_userstudy / "03b_outgroup_distances_pair_small_euclid.svg", width=width, height=500)
+
+    #########################################
+
+    fig = px.box(df_plot, x="POI_name", y="abs_3d_diff", color="group", points="outliers", category_orders={"POI_name": ticks})
+    fig.update_layout(
+        yaxis_title="Absolute Differences [mm]",
+        xaxis_title="Landmark (cross-group)",
+        boxmode="group",
+        # template="simple_white",
+    )
+
     Print_Logger().on_save(out_userstudy / "03b_outgroup_distances_pair.svg")
-    fig.write_image(out_userstudy / "03b_outgroup_distances_pair.svg", width=2000, height=800)
+    fig.write_image(out_userstudy / "03b_outgroup_distances_pair.svg", width=width, height=1000)
+
+    Print_Logger().on_save(out_userstudy / "03b_outgroup_distances_pair.svg")
+    # ig.update_yaxes(range=[-1, 12], dtick=2)
+    fig.write_image(out_userstudy / "03b_outgroup_distances_pair_small.svg", width=width, height=500)
+
+    fig = px.box(df_plot, x="POI_name", y="abs_3d_diff", color="group", points="outliers", category_orders={"POI_name": ticks})
+    fig.update_layout(
+        yaxis_title="Absolute Differences [mm]",
+        xaxis_title="Landmark (cross-group)",
+        boxmode="group",
+        # template="simple_white",
+    )
+    fig.update_yaxes(range=[-1, 20], dtick=2)
+    fig.write_image(out_userstudy / "03b_outgroup_distances_xxxxx.svg", width=width, height=1000)
+    return df_plot
 
 
-outgroup_euclid_fig()
+results_df = outgroup_euclid_fig()
+print(results_df)
+stats = results_df.groupby(["group", "POI_name"])["abs_3d_diff"].agg(MAE="mean", SD="std", N="count").reset_index()
+stats["MAE±SD"] = stats.apply(lambda r: f"{r.MAE:.2f} ± {r.SD:.2f}", axis=1)
+
+table = stats.pivot(index="POI_name", columns="group", values="MAE±SD")
+
+print("\nMAE ± SD (deg)")
+print(table.to_string())
+
+
+stats = results_df.groupby(["group", "POI_name"])["euclid_3d_diff"].agg(MAE="mean", SD="std", N="count").reset_index()
+stats["MAE±SD"] = stats.apply(lambda r: f"{r.MAE:.2f} ± {r.SD:.2f}", axis=1)
+
+table = stats.pivot(index="POI_name", columns="group", values="MAE±SD")
+
+print("\nmean_euclid ± SD (deg)")
+print(table.to_string())

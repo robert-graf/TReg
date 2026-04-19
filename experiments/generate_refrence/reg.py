@@ -7,14 +7,14 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 from scipy.stats import ttest_rel, wilcoxon
-from TPTBox import BIDS_FILE, NII, POI_Global, Print_Logger, to_nii
-from TPTBox.core.vert_constants import Full_Body_Instance, Lower_Body
+from TPTBox import BIDS_FILE, NII, POI, POI_Global, Print_Logger, to_nii
+from TPTBox.core.vert_constants import Full_Body_Instance
 from TPTBox.registration import Template_Registration
 
 out = str(Path(__file__).parent.parent.parent)
 sys.path.append(out)
 
-from constants import POI_MAP, flips_model, mapp_models_filp, out_userstudy, out_voting, path_mrk, path_train_poi, raters_all
+from constants import default_dict, derivatives_folder, local_folder, out_voting, path_train_poi, raters_all
 
 logger = Print_Logger()
 
@@ -34,6 +34,12 @@ mapping_mirror = {
     Full_Body_Instance.tibia_left.value: Full_Body_Instance.tibia_right.value,
     Full_Body_Instance.fibula_left.value: Full_Body_Instance.fibula_right.value,
 }
+leg_ids_other = [
+    Full_Body_Instance.femur_right,
+    Full_Body_Instance.patella_right,
+    Full_Body_Instance.tibia_right,
+    Full_Body_Instance.fibula_right,
+]
 
 
 def fetch(path: Path | str, seg: bool):
@@ -93,7 +99,55 @@ def to_mrk(path_train_poi: Path, out_folder: Path):
         poi.sort().save_mrk(out_mrk)
 
 
-def run_all(
+def run(
+    moving_img: NII,
+    target: NII,
+    mirror,
+    gpu=0,
+    lr: float = 0.001,
+    max_steps: int = 1500,
+    min_delta: float = 0.000001,
+    pyramid_levels: int = 4,
+    coarsest_level: int = 3,
+    finest_level: int = 0,
+    be=0.00001,
+    mse=1,
+    dice=0.01,
+    com=0.001,
+    transform_name="SVFFD",
+    atlas_is_target=True,
+):
+    weights: dict = {"be": be, "seg": mse, "Dice": dice, "Tether": com}
+    if mirror:
+        if atlas_is_target:
+            moving_img = moving_img.map_labels(mapping_mirror)
+        else:
+            target = target.map_labels(mapping_mirror)
+    # logger.on_debug(f"{mirror=} {out=}")
+    target = target.extract_label(leg_ids, True)
+    moving_img = moving_img.extract_label(leg_ids, True)
+    logger.on_debug(f"{mirror=} {out=},{moving_img.unique()},{target.unique()}")
+    reg = Template_Registration(
+        target,  # Target segmentation
+        moving_img,  # Starting Segmentation (not the split one)
+        same_side=not mirror,
+        lr=lr,
+        max_steps=max_steps,
+        min_delta=min_delta,
+        pyramid_levels=pyramid_levels,
+        coarsest_level=coarsest_level,
+        finest_level=finest_level,
+        # loss_terms=loss_terms,
+        # poi_target_cms=None,
+        # poi_cms=poi_atlas_cms,  # Can be None, than it will be computed automatically
+        weights=weights,
+        gpu=gpu,
+        transform_name=transform_name,
+    )
+    return reg
+
+
+def run_all_to_atlas(
     folder: Path,
     target: NII,
     out_folder: Path,
@@ -108,14 +162,10 @@ def run_all(
     dice=0.01,
     com=0.001,
     no_inference=False,
+    transform_name="SVFFD",
 ):
-
-    weights: dict = {
-        "be": be,
-        "seg": mse,
-        "Dice": dice,
-        "Tether": com,
-    }
+    target = target.extract_label(leg_ids, True)
+    target = target.apply_crop(target.compute_crop(0, 50))
     out_paths = []
     for i in (folder).iterdir():
         poi = POI_Global.load(i)
@@ -127,6 +177,7 @@ def run_all(
             / f"ses-{bf.get('ses')!s}"
             / f"sub-{bf.get('sub')!s}_ses-{bf.get('ses')!s}_sequ-{bf.get('sequ')!s}_seg-VIBESeg-11-lr_msk.nii.gz"
         )
+
         fetch(moving_path, True)
 
         # continue
@@ -144,31 +195,120 @@ def run_all(
             return None
         # assert not mirror
         moving_img = to_nii(moving_path, True)
-        if mirror:
-            moving_img = moving_img.map_labels(mapping_mirror)
 
-        logger.on_debug(f"{mirror=} {out=}")
-        seg = target.extract_label(leg_ids, True)
-        reg = Template_Registration(
-            seg,  # Target segmentation
-            moving_img.extract_label(leg_ids, True),  # Starting Segmentation (not the split one)
-            same_side=not mirror,
+        reg = run(
+            moving_img=moving_img,
+            target=target,
+            mirror=mirror,
+            gpu=0,
             lr=lr,
             max_steps=max_steps,
             min_delta=min_delta,
             pyramid_levels=pyramid_levels,
             coarsest_level=coarsest_level,
             finest_level=finest_level,
-            # loss_terms=loss_terms,
-            # poi_target_cms=None,
-            # poi_cms=poi_atlas_cms,  # Can be None, than it will be computed automatically
-            weights=weights,
-            gpu=0,
+            be=be,
+            mse=mse,
+            dice=dice,
+            com=com,
+            transform_name=transform_name,
         )
         logger.print("make atlas_reg", moving_img)
         atlas_reg = reg.transform_poi(poi)  # Transferring the atlas
         atlas_reg.info = poi.info
         atlas_reg.to_global().save_mrk(out)
+    return out_paths
+
+
+def run_all_from_atlas(
+    folder: Path,
+    moving_ref: NII,
+    atlas: NII,
+    atlas_poi: POI,
+    out_folder: Path,
+    lr: float = 0.001,
+    max_steps: int = 1500,
+    min_delta: float = 0.000001,
+    pyramid_levels: int = 4,
+    coarsest_level: int = 3,
+    finest_level: int = 0,
+    be=0.00001,
+    mse=1,
+    dice=0.01,
+    com=0.001,
+    no_inference=False,
+    transform_name="SVFFD",
+    debug=False,
+):
+
+    c = atlas.compute_crop(0, 50)
+    atlas.apply_crop(c)
+    atlas_poi.resample_from_to(atlas)
+    moving_ref = moving_ref.resample_from_to(atlas)
+    out_paths = []
+    for i in (folder).iterdir():
+        bf = BIDS_FILE(i, local_folder)
+        inference_path = (
+            local_folder
+            / derivatives_folder
+            / str(bf.get("sub"))
+            / f"ses-{bf.get('ses')!s}"
+            / f"sub-{bf.get('sub')!s}_ses-{bf.get('ses')!s}_sequ-{bf.get('sequ')!s}_seg-VIBESeg-11-lr_msk.nii.gz"
+        )
+
+        fetch(inference_path, True)
+
+        # continue
+        if not inference_path.exists():
+            continue
+        # exit()
+
+        mirror = "LEFT" not in i.name.upper()
+        out = out_folder / i.name
+        out_paths.append(out)
+        if out.exists():
+            continue
+        if no_inference:
+            return None
+        # assert not mirror
+        target_inference = to_nii(inference_path, True)
+        ids = leg_ids if not mirror else leg_ids_other
+        target_inference = target_inference.extract_label(ids, True)
+        c = target_inference.compute_crop(0, 50)
+        target_inference = target_inference.apply_crop(c)  # .pad_to()
+        target_inference.save(str(out).split(".")[0].replace("_poi", "") + "_desc-target_msk.nii.gz")
+
+        if debug:
+            moving_ref.extract_label(leg_ids, True).save(str(out).split(".")[0] + "_moving.nii.gz")
+            atlas_poi.to_global().save_mrk(str(out).split(".")[0] + "_moving.mrk.json")
+            atlas.save(str(out).split(".")[0] + "_moving_atlas.nii.gz")
+        reg = run(
+            moving_img=moving_ref,
+            target=target_inference,
+            mirror=mirror,
+            gpu=0,
+            lr=lr,
+            max_steps=max_steps,
+            min_delta=min_delta,
+            pyramid_levels=pyramid_levels,
+            coarsest_level=coarsest_level,
+            finest_level=finest_level,
+            be=be,
+            mse=mse,
+            dice=dice,
+            com=com,
+            transform_name=transform_name,
+            atlas_is_target=False,
+        )
+        logger.print("make atlas_reg", target_inference)
+        atlas_reg = reg.transform_poi(atlas_poi)  # Transferring the atlas
+        atlas_reg.info = atlas_poi.info
+        atlas_reg.to_global().save_mrk(out)
+        out_nii = reg.transform_nii(atlas, allow_only_same_grid_as_moving=False)
+        out_nii.save(str(out).split(".")[0].replace("_poi", "_msk") + ".nii.gz")
+        # out_nii = reg.transform_nii(atlas, allow_only_same_grid_as_moving=False, only_rigid=True)
+        # out_nii.save(str(out).split(".")[0] + "only_rigid_.nii.gz")
+
     return out_paths
 
 
@@ -263,7 +403,8 @@ def compute_agreement_scores(all_mrk: Path, mean_mrk: Path):
         if (k1, k2) not in poi_mean:
             continue
         v_mean = poi_mean[k1, k2]
-        d = np.linalg.norm(np.asarray(v) - np.asarray(v_mean))
+        d = np.abs(np.asarray(v) - np.asarray(v_mean)).sum()
+        # d = np.sqrt(np.sum((np.asarray(v) - np.asarray(v_mean)) ** 2))
         dists_by_lid[lid].append(d)
     # summarize per landmark
     rows = []
@@ -443,29 +584,11 @@ def compute_run_times(paths: list[Path], drop_n=3):
     }
 
 
-def change_to_label(change: dict):
-    if not change:
-        return "baseline"
-    return ",".join(f"{k}={v}" for k, v in change.items())
-
-
 if __name__ == "__main__":
-    derivatives_folder = "derivatives-VIBESeg-12-"
-    local_folder = Path("/media/data/robert/dataset-myelom/dataset-myelom")
-    if not local_folder.exists():
-        local_folder = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom")
-
-    assert local_folder.exists(), local_folder
     out_mrk = path_train_poi.parent / "mrk"
     to_mrk(path_train_poi, out_mrk)
 
-    target = (
-        local_folder
-        / derivatives_folder
-        / "CTFU04045"
-        / "ses-20220303"
-        / "sub-CTFU04045_ses-20220303_sequ-204_seg-VIBESeg-11-lr_msk.nii.gz"
-    )
+    target = target_file
     fetch(target, True)
     default_dict = {
         "lr": 0.001,
@@ -478,6 +601,7 @@ if __name__ == "__main__":
         "mse": 1,
         "dice": 0.01,
         "com": 0.001,
+        "transform_name": "SVFFD",
     }
     changes = [
         {},
@@ -521,29 +645,39 @@ if __name__ == "__main__":
         {"com": 0.0000000001},
         #########
         {"dice": 0, "com": 0},
+        ########
+        # {"transform_name": "FreeFormDeformation"}, # Not invertible
+        {"transform_name": "StationaryVelocityFieldTransform"},
+        {"transform_name": "DisplacementFieldTransform"},
     ]
     time = {}
     for c in changes:
         di = default_dict.copy()
         for k, v in c.items():
             di[k] = v
-        key = "_".join(f"{k}-{v}" for k, v in di.items())
+        key = "_".join(f"{k}-{v}" for k, v in di.items() if v != "SVFFD")
         target = to_nii(target, True)
         out_folder = path_train_poi.parent / f"treg_{key}"
         out_folder.mkdir(exist_ok=True)
-
-        out_file = run_all(out_mrk, target, out_folder, **di, no_inference=True)
-        if out_file is None:
+        try:
+            out_file = run_all_to_atlas(out_mrk, target, out_folder, **di, no_inference=False)
+            if out_file is None:
+                continue
+            stats = compute_run_times(out_file, drop_n=3)
+            # print(str(c))
+            # print(f"Average runtime (trimmed): {stats['mean']:.2f} s")
+            # print(f"Median runtime: {stats['median']:.2f} s")
+            # print(f"Std runtime: {stats['std']:.2f} s")
+            del stats["all_durations"]
+            del stats["used_durations"]
+            time["treg_" + key] = stats
+            aggregate(out_folder)
+        except NotImplementedError:
+            logger.print_error()
+            break
+        except Exception:
+            logger.print_error()
             continue
-        stats = compute_run_times(out_file, drop_n=3)
-        # print(str(c))
-        # print(f"Average runtime (trimmed): {stats['mean']:.2f} s")
-        # print(f"Median runtime: {stats['median']:.2f} s")
-        # print(f"Std runtime: {stats['std']:.2f} s")
-        del stats["all_durations"]
-        del stats["used_durations"]
-        time["treg_" + key] = stats
-        aggregate(out_folder)
         # break
 
     df_global, per_lid = evaluate_all_experiments(out_voting)
@@ -561,7 +695,7 @@ if __name__ == "__main__":
         di = default_dict.copy()
         for k, v in change.items():
             di[k] = v
-        key = "_".join(f"{k}-{v}" for k, v in di.items())
+        key = "_".join(f"{k}-{v}" for k, v in di.items() if v != "SVFFD")
 
         old_name = "treg_" + key
         # assert old_name in df_index, (old_name, df_index)

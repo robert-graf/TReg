@@ -217,3 +217,5 @@ old
 *.png
 *.zip
 *.nii.gz
+
+private

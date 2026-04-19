@@ -16,18 +16,28 @@ df_all["evaluator"] = df_all.apply(lambda row: rater_key[row.rater][0], axis=1)
 df_all["version"] = df_all.apply(lambda row: rater_key[row.rater][1], axis=1)
 
 
-angles = [
+angles = (
     "tibia_torsion_2D",
     "femoral_torsion_2D",
     "mLDFA",
     "MPTA",
     "HKA_2D",
-    "PDFA_sagittal_2D",
-    "PDFA_medial_3D",
-    "PDFA_lateral_3D",
+    "LPFA",
+    "MPFA",
+    "NSA",
+    "sagittal_HKA",
+    "JLCA",
     "tibial_slope_medial",
     "tibial_slope_lateral",
-]
+    "patella_tilt",
+    "PDFA",
+    # "trochlea_depth_lateral",
+    # "trochlea_depth_medial",
+    # "trochlea_angle",
+    # "PDFA_sagittal_2D",
+    # "PDFA_medial_3D",
+    # "PDFA_lateral_3D",
+)
 
 
 def angular_diff_deg(a, b):
@@ -106,10 +116,34 @@ def angular_outgroup_fig():
         yaxis_title="Absolute Angular Difference [deg]",
         xaxis_title="Angle (cross-group)",
         boxmode="group",
-        template="simple_white",
+        # template="simple_white",
     )
     Print_Logger().on_save(out_userstudy / "04b_outgroup_angles.svg")
-    fig.write_image(out_userstudy / "04b_outgroup_angles.svg", width=2000, height=800)
+    fig.write_image(out_userstudy / "04b_outgroup_angles.svg", width=1500, height=500)
+
+    fig = px.box(df_plot, x="angle", y="abs_angle_diff", color="group", points="outliers")  # log_y=True
+    fig.update_layout(
+        yaxis_title="Absolute Diffrence Angle [deg].",
+        xaxis_title="Angle (in-group only)",
+        boxmode="group",
+        # template="simple_white",
+    )
+    # if pairwise:
+    #    fig.update_yaxes(range=[-3, 2])
+    fig.write_image(out_userstudy / "04b_outgroup_angles_small.svg", width=1500, height=500)
+    return df_plot
 
 
-angular_outgroup_fig()
+df_plot = angular_outgroup_fig()
+# Compute MAE and SD
+stats = df_plot.groupby(["group", "angle"])["abs_angle_diff"].agg(MAE="mean", SD="std", N="count").reset_index()
+
+# Save table
+stats["MAE±SD"] = stats.apply(lambda r: f"{r.MAE:.2f} ± {r.SD:.2f}", axis=1)
+
+table = stats.pivot(index="angle", columns="group", values="MAE±SD")
+Print_Logger().on_save(out_userstudy / "04b_outgroup_angles_stats.xlsx")
+table.to_excel(out_userstudy / "04b_outgroup_angles_stats.xlsx", index=True)
+
+print("\nMAE ± SD (deg)")
+print(table.to_string())

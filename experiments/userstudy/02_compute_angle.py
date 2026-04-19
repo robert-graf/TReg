@@ -9,29 +9,60 @@ out = str(Path(__file__).parent.parent.parent)
 sys.path.append(out)
 
 
-from constants import out_userstudy, raters_all
+from constants import POI_MAP, out_userstudy, raters_all
 from treg import angle
 from treg.angle import compute_angles
 
+# raters_all = [
+#    "Julius/Julius_V1",
+#    "Julius/Julius_V2",
+#    "Julius/Julius_V3",
+#    "Leon",
+#    "Philipp",
+#    # "Robert_Model",
+#    "Robert_Model_1",
+#    "Robert_Model_2",
+#    "Robert_Model_3",
+#    "SSM_Model_1",
+# ]
+
+copy_from_rules_based = {
+    "Robert_Model_1": "Julius/Julius_V1",
+    "Robert_Model_2": "Julius/Julius_V2",
+    "Robert_Model_3": "Julius/Julius_V3",
+}
+
 
 def export_angles_to_excel(raters, base_dir="pois_mrk", out_xlsx=out_userstudy / "angles_all_raters.xlsx"):
+
+    ref = {}
     rows = []
 
     for rater in raters:
         rater_dir = Path(base_dir) / rater
+        ref[rater] = {}
         for f in sorted(rater_dir.glob("*.mrk.json")):
             poi_original = POI_Global.load(f)
-            angles, _, _ = compute_angles(poi_original)
+            ref[rater][f.name] = poi_original
 
-            row = {
-                "rater": rater,
-                "file": f.name,
-            }
+            # if rater in copy_from_rules_based:
+            #    rater_other = copy_from_rules_based[rater]
+            #    poi_other = ref[rater_other][f.name]
+            #    for s in {
+            #        "FHC",
+            #        "FNC",
+            #        "FADP",
+            #        "FAAP",
+            #    }:  # "FADP", "FAAP"
+            #        a, b = POI_MAP[s]
+            #        poi_original[a, b] = poi_other[a, b]
+            angles, _, _ = compute_angles(poi_original, lagacy=True)
+
+            row = {"rater": rater, "file": f.name}
 
             # add all angles as columns
             row.update(angles)
             rows.append(row)
-
     # Build dataframe
     df = pd.DataFrame(rows)
 
