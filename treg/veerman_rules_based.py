@@ -334,8 +334,8 @@ get_TRMP = partial(_get_centroid, stem="fem_trochlea_medial", name=None, key="TR
 get_TRLP = partial(_get_centroid, stem="fem_trochlea_lateral", name=None, key="TRLP")
 get_TGCP = partial(get_TKC, _name="trochlea_center", _p1=get_TRMP, _p2=get_TRLP, _key="TGCP")
 
-get_FLCD = partial(_get_centroid, stem="fem_condyle_medial", name="Ankle plafond", key="FLCD")
-get_FMCD = partial(_get_centroid, stem="fem_condyle_lateral", name="Ankle plafond", key="FMCD")
+get_FLCD = partial(_get_centroid, stem="fem_condyle_lateral", name="Ankle plafond", key="FLCD")
+get_FMCD = partial(_get_centroid, stem="fem_condyle_medial", name="Ankle plafond", key="FMCD")
 get_FNP = partial(get_TKC, _name="trochlea_center", _p1=get_FLCD, _p2=get_FMCD, _key="FNP")
 
 
@@ -601,8 +601,26 @@ def step_3(poi: POI_Global):
     if np.dot(fem_X, med_to_lat_projected) < 0:
         fem_X = -fem_X
 
-    fem_Y = np.cross(fem_Z, fem_X)
-    fem_Y = fem_Y / norm(fem_Y)
+    # Y = anatomic anterior, derived from trochlea (anterior) → condyle (posterior).
+    # This avoids the chirality of cross(Z, X), which would make Y posterior on
+    # one side and anterior on the other.
+    med_cond_centroid = np.array(poi[POI_MAP["FMCD"]])  # "fem_condyle_medial"
+    lat_cond_centroid = np.array(poi[POI_MAP["FLCD"]])  # "fem_condyle_lateral"
+    med_troch_centroid = np.array(poi[POI_MAP["TRMP"]])  # fem_trochlea_medial
+    lat_troch_centroid = np.array(poi[POI_MAP["TRLP"]])  # fem_trochlea_lateral
+    trochlea_center = (med_troch_centroid + lat_troch_centroid) / 2.0
+    condyle_center = (med_cond_centroid + lat_cond_centroid) / 2.0
+    anterior_anat = trochlea_center - condyle_center
+    anterior_anat = anterior_anat / norm(anterior_anat)
+    results["anterior_anat"] = anterior_anat
+
+    fem_Y = anterior_anat - np.dot(anterior_anat, fem_Z) * fem_Z
+    fem_Y_norm = norm(fem_Y)
+
+    if fem_Y_norm < 1e-10:
+        raise AnalysisError("anterior_anat aligned with fem_Z — cannot define Y")
+    fem_Y = fem_Y / fem_Y_norm
+
     results["fem_cs"] = {"origin": dist_fem, "X": fem_X, "Y": fem_Y, "Z": fem_Z}
 
     logger.info("\nFemoral CS (origin = dist_fem_center):")
@@ -868,7 +886,7 @@ def step_4(poi: POI_Global):
     logger.info(f"  mMPTA: {mmpta:.1f} deg")
 
     deviation = math.degrees(math.acos(np.clip(np.dot(mfa_cor, mta_cor), -1.0, 1.0)))
-    cross_2d = (mfa_cor[0] * mta_cor[1] - mfa_cor[1] * mta_cor[0]) * (-1.0 if side == "R" else 1.0)
+    cross_2d = mfa_cor[0] * mta_cor[1] - mfa_cor[1] * mta_cor[0]  # * (-1.0 if side == "R" else 1.0)
     if cross_2d > 0:
         deviation = -deviation
     angles["HKAA"] = 180.0 - deviation
@@ -902,17 +920,17 @@ def step_4(poi: POI_Global):
 
     for label in ["medial", "lateral", "combined"]:
         pn = plateau_planes[label]["normal"]
-        normal_sagittal = np.array([np.dot(pn, tib_Y), np.dot(pn, tib_Z)])
-        slope = math.degrees(math.atan2(normal_sagittal[0], normal_sagittal[1]))
+        slope = math.degrees(math.atan2(-np.dot(pn, tib_Y), np.dot(pn, tib_Z)))
         angles[f"posterior_slope_{label}"] = slope
-        logger.info(f"  Posterior slope ({label}): {slope:.1f} deg")
+        logger.info(f"  Posterior slope ({label}): {slope:.1f} deg (positive = posterior tilt)")
 
     # =====================================================================
     # G) PTJ AP ORIENTATION
     # =====================================================================
     logger.info("\n--- PTJ AP orientation ---")
-    angles["PTJ_APM"] = math.degrees(math.atan2(np.dot(med_normal, tib_Y), np.dot(med_normal, tib_Z)))
-    angles["PTJ_APL"] = math.degrees(math.atan2(np.dot(lat_normal, tib_Y), np.dot(lat_normal, tib_Z)))
+
+    angles["PTJ_APM"] = math.degrees(math.atan2(-np.dot(med_normal, tib_Y), np.dot(med_normal, tib_Z)))
+    angles["PTJ_APL"] = math.degrees(math.atan2(-np.dot(lat_normal, tib_Y), np.dot(lat_normal, tib_Z)))
     logger.info(f"  PTJ APM: {angles['PTJ_APM']:.1f} deg | PTJ APL: {angles['PTJ_APL']:.1f} deg")
 
     # =====================================================================
@@ -921,28 +939,33 @@ def step_4(poi: POI_Global):
     logger.info("\n--- Femoral version (FVA) ---")
     fem_Z_axis = fem_cs["Z"]
     neck_center = results["fem_neck_center"]
-    neck_pts = meshes["fem_neck"].vertices
-    neck_centered = neck_pts - neck_pts.mean(axis=0)
-    neck_cov = np.dot(neck_centered.T, neck_centered) / len(neck_pts)
-    neck_eigvals, neck_eigvecs = eigh(neck_cov)
-    neck_long_axis = neck_eigvecs[:, -1]
-    if np.dot(neck_long_axis, fem_head - neck_center) < 0:
-        neck_long_axis = -neck_long_axis
+
+    neck_long_axis = fem_head - neck_center
+    neck_long_axis = neck_long_axis / norm(neck_long_axis)
 
     prox_projected = neck_long_axis - np.dot(neck_long_axis, fem_Z_axis) * fem_Z_axis
     if norm(prox_projected) < 1e-10:
         raise AnalysisError("Neck long axis aligned with femoral Z")
     prox_projected = prox_projected / norm(prox_projected)
 
+    med_cond_centroid = np.array(poi[POI_MAP["FMCD"]])  # "fem_condyle_medial"
+    lat_cond_centroid = np.array(poi[POI_MAP["FLCD"]])  # "fem_condyle_lateral"
+
+    medial_dir_fva = med_cond_centroid - lat_cond_centroid
+    medial_dir_fva = medial_dir_fva - np.dot(medial_dir_fva, fem_Z_axis) * fem_Z_axis
+    medial_dir_fva = medial_dir_fva / norm(medial_dir_fva)
+
     cyl_axis = results["cylinder_axis"]
+    if np.dot(cyl_axis, medial_dir_fva) < 0:
+        cyl_axis = -cyl_axis
     dist_projected = cyl_axis - np.dot(cyl_axis, fem_Z_axis) * fem_Z_axis
     if norm(dist_projected) < 1e-10:
         raise AnalysisError("Cylinder axis aligned with femoral Z")
     dist_projected = dist_projected / norm(dist_projected)
 
     version_angle = math.degrees(math.acos(np.clip(np.dot(prox_projected, dist_projected), -1.0, 1.0)))
-    cross = np.cross(dist_projected, prox_projected)
-    if np.dot(cross, fem_Z_axis) < 0:
+    delta_anterior_fva = np.dot(prox_projected - dist_projected, fem_Y)
+    if delta_anterior_fva < 0:
         version_angle = -version_angle
     if version_angle < -90:
         version_angle = version_angle + 180
@@ -967,8 +990,8 @@ def step_4(poi: POI_Global):
     dist_tib_projected = dist_tib_projected / norm(dist_tib_projected)
 
     torsion_angle = math.degrees(math.acos(np.clip(np.dot(prox_tib_projected, dist_tib_projected), -1.0, 1.0)))
-    cross_torsion = np.cross(prox_tib_projected, dist_tib_projected)
-    if np.dot(cross_torsion, tib_Z_axis) < 0:
+    delta_anterior_tta = np.dot(prox_tib_projected - dist_tib_projected, tib_Y)
+    if delta_anterior_tta < 0:
         torsion_angle = -torsion_angle
     angles["TTA"] = torsion_angle
     angles["tibial_torsion"] = torsion_angle
@@ -1313,8 +1336,8 @@ def run_single_case(nii, stl_folder: "Path | str", side: Literal["R", "L"], outp
     poi.info["ankle_lat_centroid"] = np.array(poi[POI_MAP["FLM"]])
     poi.info["ankle_mid_centroid"] = np.array(poi[POI_MAP["TAC"]])
     poi.info["ankle_center"] = np.array(poi[POI_MAP["ankle_center"]])
-    poi.info["cond_med_centroid"] = np.array(poi[POI_MAP["FLCD"]])
-    poi.info["cond_lat_centroid"] = np.array(poi[POI_MAP["FMCD"]])
+    poi.info["cond_med_centroid"] = np.array(poi[POI_MAP["FMCD"]])
+    poi.info["cond_lat_centroid"] = np.array(poi[POI_MAP["FLCD"]])
 
     step_3(poi)
     step_4(poi)
