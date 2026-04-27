@@ -1277,7 +1277,9 @@ def step_5(poi: POI_Global, results, output_path=None):
         "mLPPTA": "Mech. lateral posterior proximal tibial angle (Fig.7c2)",
         "PTJ_APM": "Proximal tibial joint AP orientation medial",
         "PTJ_APL": "Proximal tibial joint AP orientation lateral",
-        "FVA": "Femoral version angle (Fig.7d1, positive = anteversion)",
+        "FVA": "Femoral version angle (Veerman cylinder-axis convention, Fig.7d1, positive = anteversion)",
+        "FVA_tangent_posterior": "Femoral version angle (tangent-PCL convention; Yoshioka-style, positive = anteversion)",
+        "FVA_method_divergence": "Absolute difference |FVA - FVA_tangent_posterior| in deg",
         "TTA": "Tibial torsion angle (Fig.7d2, positive = external)",
         "femoral_version": "Femoral version (legacy alias for FVA)",
         "tibial_torsion": "Tibial torsion (legacy alias for TTA)",
@@ -1366,6 +1368,8 @@ def step_5_flat(results, case_id):
         "posterior_slope_combined_deg": a.get("posterior_slope_combined"),
         # Torsion
         "FVA_deg": a.get("FVA"),
+        "FVA_tangent_posterior_deg": a.get("FVA_tangent_posterior"),
+        "FVA_method_divergence_deg": a.get("FVA_method_divergence"),
         "TTA_deg": a.get("TTA"),
         # Joint centers in global mm
         "fem_head_center_x_mm": _safe_global("fem_head_center", 0),
