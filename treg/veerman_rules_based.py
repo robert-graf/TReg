@@ -614,12 +614,21 @@ def step_3(poi: POI_Global):
     anterior_anat = anterior_anat / norm(anterior_anat)
     results["anterior_anat"] = anterior_anat
 
-    fem_Y = anterior_anat - np.dot(anterior_anat, fem_Z) * fem_Z
+    # Gram-Schmidt: project anterior_anat onto plane orthogonal to BOTH
+    # fem_Z and fem_X. Without the second projection, fem_Y inherits any
+    # lateral component of anterior_anat (relevant in patients with
+    # lateralized trochlea, e.g. dysplasia), making the (X, Y, Z) basis
+    # non-orthogonal and breaking sign rules that rely on fem_Y direction.
+    fem_Y = (anterior_anat
+             - np.dot(anterior_anat, fem_Z) * fem_Z
+             - np.dot(anterior_anat, fem_X) * fem_X)
     fem_Y_norm = norm(fem_Y)
-
     if fem_Y_norm < 1e-10:
-        raise AnalysisError("anterior_anat aligned with fem_Z — cannot define Y")
+        raise AnalysisError(
+            "anterior_anat aligned with fem_Z or fem_X — cannot define orthogonal fem_Y"
+        )
     fem_Y = fem_Y / fem_Y_norm
+    assert abs(np.dot(fem_X, fem_Y)) < 1e-6, "fem_X . fem_Y must be ~0 after Gram-Schmidt"
 
     results["fem_cs"] = {"origin": dist_fem, "X": fem_X, "Y": fem_Y, "Z": fem_Z}
 
@@ -641,8 +650,21 @@ def step_3(poi: POI_Global):
     if np.dot(tib_X, plateau_line) < 0:
         tib_X = -tib_X
 
-    tib_Y = np.cross(tib_Z, tib_X)
-    tib_Y = tib_Y / norm(tib_Y)
+    # Y = anatomic anterior, derived from the same anterior_anat reference
+    # as fem_Y. Avoids the chirality of cross(tib_Z, tib_X), which produces
+    # opposite anatomical directions for left vs right legs and causes
+    # TTA, posterior_slope_*, mMPPTA, mLPPTA, PTJ_AP* to flip sign by side.
+    # Gram-Schmidt against tib_X for orthonormality of the (X, Y, Z) basis.
+    tib_Y = (anterior_anat
+             - np.dot(anterior_anat, tib_Z) * tib_Z
+             - np.dot(anterior_anat, tib_X) * tib_X)
+    tib_Y_norm = norm(tib_Y)
+    if tib_Y_norm < 1e-10:
+        raise AnalysisError(
+            "anterior_anat aligned with tib_Z or tib_X — cannot define orthogonal tib_Y"
+        )
+    tib_Y = tib_Y / tib_Y_norm
+    assert abs(np.dot(tib_X, tib_Y)) < 1e-6, "tib_X . tib_Y must be ~0 after Gram-Schmidt"
     results["tib_cs"] = {"origin": prox_tib, "X": tib_X, "Y": tib_Y, "Z": tib_Z}
 
     logger.info("\nTibial CS (origin = prox_tib_center):")
@@ -653,11 +675,17 @@ def step_3(poi: POI_Global):
     # --- Validation ---
     fem_rh = np.dot(np.cross(fem_Z, fem_X), fem_Y)
     tib_rh = np.dot(np.cross(tib_Z, tib_X), tib_Y)
-    logger.info(f"\nRight-handedness check: fem={fem_rh:.4f}, tib={tib_rh:.4f} (should be > 0)")
-    if fem_rh <= 0:
-        raise AnalysisError("Femoral CS is not right-handed!")
-    if tib_rh <= 0:
-        raise AnalysisError("Tibial CS is not right-handed!")
+    fem_hand = "right-handed" if fem_rh > 0 else "left-handed"
+    tib_hand = "right-handed" if tib_rh > 0 else "left-handed"
+    # With anatomic Y derived from anterior_anat (a patient-fixed reference
+    # that does not change sign with leg side), the basis chirality differs
+    # between left and right legs by construction. This is expected and
+    # required for measurements like TTA and posterior slope to be
+    # side-invariant. Logged for transparency, not raised as an error.
+    logger.info(
+        f"Handedness: fem={fem_hand} ({fem_rh:+.4f}), "
+        f"tib={tib_hand} ({tib_rh:+.4f})"
+    )
 
     fem_Z_align = np.dot(fem_Z, cranial_dir)
     tib_Z_align = np.dot(tib_Z, cranial_dir)
