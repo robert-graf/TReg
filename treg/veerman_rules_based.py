@@ -645,14 +645,10 @@ def step_3(poi: POI_Global):
     # lateral component of anterior_anat (relevant in patients with
     # lateralized trochlea, e.g. dysplasia), making the (X, Y, Z) basis
     # non-orthogonal and breaking sign rules that rely on fem_Y direction.
-    fem_Y = (anterior_anat
-             - np.dot(anterior_anat, fem_Z) * fem_Z
-             - np.dot(anterior_anat, fem_X) * fem_X)
+    fem_Y = anterior_anat - np.dot(anterior_anat, fem_Z) * fem_Z - np.dot(anterior_anat, fem_X) * fem_X
     fem_Y_norm = norm(fem_Y)
     if fem_Y_norm < 1e-10:
-        raise AnalysisError(
-            "anterior_anat aligned with fem_Z or fem_X — cannot define orthogonal fem_Y"
-        )
+        raise AnalysisError("anterior_anat aligned with fem_Z or fem_X — cannot define orthogonal fem_Y")
     fem_Y = fem_Y / fem_Y_norm
     assert abs(np.dot(fem_X, fem_Y)) < 1e-6, "fem_X . fem_Y must be ~0 after Gram-Schmidt"
 
@@ -681,14 +677,10 @@ def step_3(poi: POI_Global):
     # opposite anatomical directions for left vs right legs and causes
     # TTA, posterior_slope_*, mMPPTA, mLPPTA, PTJ_AP* to flip sign by side.
     # Gram-Schmidt against tib_X for orthonormality of the (X, Y, Z) basis.
-    tib_Y = (anterior_anat
-             - np.dot(anterior_anat, tib_Z) * tib_Z
-             - np.dot(anterior_anat, tib_X) * tib_X)
+    tib_Y = anterior_anat - np.dot(anterior_anat, tib_Z) * tib_Z - np.dot(anterior_anat, tib_X) * tib_X
     tib_Y_norm = norm(tib_Y)
     if tib_Y_norm < 1e-10:
-        raise AnalysisError(
-            "anterior_anat aligned with tib_Z or tib_X — cannot define orthogonal tib_Y"
-        )
+        raise AnalysisError("anterior_anat aligned with tib_Z or tib_X — cannot define orthogonal tib_Y")
     tib_Y = tib_Y / tib_Y_norm
     assert abs(np.dot(tib_X, tib_Y)) < 1e-6, "tib_X . tib_Y must be ~0 after Gram-Schmidt"
     results["tib_cs"] = {"origin": prox_tib, "X": tib_X, "Y": tib_Y, "Z": tib_Z}
@@ -702,10 +694,15 @@ def step_3(poi: POI_Global):
     fem_rh = np.dot(np.cross(fem_Z, fem_X), fem_Y)
     tib_rh = np.dot(np.cross(tib_Z, tib_X), tib_Y)
     logger.info(f"\nRight-handedness check: fem={fem_rh:.4f}, tib={tib_rh:.4f} (should be > 0)")
-    # if fem_rh <= 0:
-    #    raise AnalysisError("Femoral CS is not right-handed!")
+
+    if fem_rh <= 0:
+        w = "WARN: Femoral CS is not right-handed!"
+        logger.warning(w)
+        results["warnings"].append(w)
     if tib_rh <= 0:
-        raise AnalysisError("Tibial CS is not right-handed!")
+        w = "WARN: Tibial CS is not right-handed!"
+        logger.warning(w)
+        results["warnings"].append(w)
 
     fem_Z_align = np.dot(fem_Z, cranial_dir)
     tib_Z_align = np.dot(tib_Z, cranial_dir)
@@ -1035,12 +1032,8 @@ def step_4(poi: POI_Global):
     # warning is emitted when the two methods disagree by > 8 deg.
     logger.info("\n--- Femoral version (FVA tangent-PCL) ---")
 
-    med_tangent_pt = _most_posterior_point(
-        meshes["fem_condyle_medial"], fem_Y, fem_Z, dist_fem
-    )
-    lat_tangent_pt = _most_posterior_point(
-        meshes["fem_condyle_lateral"], fem_Y, fem_Z, dist_fem
-    )
+    med_tangent_pt = _most_posterior_point(meshes["fem_condyle_medial"], fem_Y, fem_Z, dist_fem)
+    lat_tangent_pt = _most_posterior_point(meshes["fem_condyle_lateral"], fem_Y, fem_Z, dist_fem)
     results["pcl_tangent_med"] = med_tangent_pt
     results["pcl_tangent_lat"] = lat_tangent_pt
 
@@ -1054,18 +1047,13 @@ def step_4(poi: POI_Global):
         raise AnalysisError("Tangent-PCL aligned with femoral Z")
     dist_projected_tp = dist_projected_tp / norm(dist_projected_tp)
 
-    version_angle_tp = math.degrees(math.acos(
-        np.clip(np.dot(prox_projected, dist_projected_tp), -1.0, 1.0)
-    ))
+    version_angle_tp = math.degrees(math.acos(np.clip(np.dot(prox_projected, dist_projected_tp), -1.0, 1.0)))
     delta_anterior_tp = np.dot(prox_projected - dist_projected_tp, fem_Y)
     if delta_anterior_tp < 0:
         version_angle_tp = -version_angle_tp
 
     angles["FVA_tangent_posterior"] = version_angle_tp
-    logger.info(
-        f"  FVA_tangent_posterior: {version_angle_tp:.1f} deg "
-        f"(positive = anteversion, tangent-PCL convention)"
-    )
+    logger.info(f"  FVA_tangent_posterior: {version_angle_tp:.1f} deg (positive = anteversion, tangent-PCL convention)")
 
     fva_method_div = abs(version_angle - version_angle_tp)
     angles["FVA_method_divergence"] = fva_method_div
