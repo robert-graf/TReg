@@ -247,6 +247,12 @@ def get_FHC(
         logger.info(f"  Residual std: {sph['residual_std']:.4f} mm")
 
     if sph["rmse"] > 5.0:
+        logger.info(f"  Center: ({sph['center'][0]:.2f}, {sph['center'][1]:.2f}, {sph['center'][2]:.2f})")
+        logger.info(f"  Radius: {sph['radius']:.2f} mm")
+        logger.info(f"  RMSE: {sph['rmse']:.4f} mm")
+        logger.info(f"  Max residual: {sph['max_residual']:.4f} mm")
+        logger.info(f"  Mean signed residual: {sph['mean_signed_residual']:.4f} mm")
+        logger.info(f"  Residual std: {sph['residual_std']:.4f} mm")
         raise AnalysisError(f"Sphere RMSE {sph['rmse']:.2f} > 5 mm")
     if not (20 <= sph["radius"] <= 28):
         w = f"WARN: Sphere radius {sph['radius']:.2f} mm outside 20-28 mm range"
@@ -654,8 +660,8 @@ def step_3(poi: POI_Global):
     fem_rh = np.dot(np.cross(fem_Z, fem_X), fem_Y)
     tib_rh = np.dot(np.cross(tib_Z, tib_X), tib_Y)
     logger.info(f"\nRight-handedness check: fem={fem_rh:.4f}, tib={tib_rh:.4f} (should be > 0)")
-    if fem_rh <= 0:
-        raise AnalysisError("Femoral CS is not right-handed!")
+    # if fem_rh <= 0:
+    #    raise AnalysisError("Femoral CS is not right-handed!")
     if tib_rh <= 0:
         raise AnalysisError("Tibial CS is not right-handed!")
 

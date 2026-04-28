@@ -304,8 +304,15 @@ def run_all_from_atlas(
         atlas_reg = reg.transform_poi(atlas_poi)  # Transferring the atlas
         atlas_reg.info = atlas_poi.info
         atlas_reg.to_global().save_mrk(out)
-        out_nii = reg.transform_nii(atlas, allow_only_same_grid_as_moving=False)
-        out_nii.save(str(out).split(".")[0].replace("_poi", "_msk") + ".nii.gz")
+        target_out_subdivided = str(out).split(".")[0].replace("_poi", "_msk") + ".nii.gz"
+        n = reg.transform_nii(atlas, allow_only_same_grid_as_moving=False)  # Transferring the atlas subdivisions
+        s = target_inference.extract_label([13, 15, 113, 115], keep_label=True) % 100
+        s.map_labels_({13: 7, 15: 8})
+        n = n.infect_(s) * (target_inference).dilate_msk(2).clamp(0, 1)
+        s = s.erode_msk_euclid(3)
+        n[s != 0] = s[s != 0]
+        n.save(target_out_subdivided)
+
         # out_nii = reg.transform_nii(atlas, allow_only_same_grid_as_moving=False, only_rigid=True)
         # out_nii.save(str(out).split(".")[0] + "only_rigid_.nii.gz")
 
