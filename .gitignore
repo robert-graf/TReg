@@ -219,3 +219,8 @@ old
 *.nii.gz
 
 private
+angle.lua
+temp*
+ssm.pkl
+*.nrrd
+*_old.py
