@@ -128,6 +128,26 @@ def _check_required_keys(results, required, step_name):
         raise AnalysisError(f"Missing required keys for {step_name}: {missing}.")
 
 
+def _most_posterior_point(mesh, fem_Y_axis, fem_Z_axis, origin, z_band_mm=25.0):
+    """
+    Return the world-coord vertex of `mesh` with the smallest fem_Y
+    component (= most posterior in the femoral CS), restricted to a
+    Z-band of +/- z_band_mm around `origin` so that vertices on the
+    proximal diaphysis cannot win.
+
+    Used as the tangent-PCL distal reference for FVA_tangent_posterior.
+    """
+    verts = np.asarray(mesh.vertices)
+    rel = verts - origin
+    z_proj = rel @ fem_Z_axis
+    mask = (z_proj > -z_band_mm) & (z_proj < z_band_mm)
+    if not np.any(mask):
+        mask = np.ones(len(verts), dtype=bool)
+    kept = verts[mask]
+    ant_components = (kept - origin) @ fem_Y_axis
+    return kept[np.argmin(ant_components)]
+
+
 # =============================================================================
 # STEP 0 — SYNTHETIC VALIDATION
 # =============================================================================
@@ -620,12 +640,21 @@ def step_3(poi: POI_Global):
     anterior_anat = anterior_anat / norm(anterior_anat)
     results["anterior_anat"] = anterior_anat
 
-    fem_Y = anterior_anat - np.dot(anterior_anat, fem_Z) * fem_Z
+    # Gram-Schmidt: project anterior_anat onto plane orthogonal to BOTH
+    # fem_Z and fem_X. Without the second projection, fem_Y inherits any
+    # lateral component of anterior_anat (relevant in patients with
+    # lateralized trochlea, e.g. dysplasia), making the (X, Y, Z) basis
+    # non-orthogonal and breaking sign rules that rely on fem_Y direction.
+    fem_Y = (anterior_anat
+             - np.dot(anterior_anat, fem_Z) * fem_Z
+             - np.dot(anterior_anat, fem_X) * fem_X)
     fem_Y_norm = norm(fem_Y)
-
     if fem_Y_norm < 1e-10:
-        raise AnalysisError("anterior_anat aligned with fem_Z — cannot define Y")
+        raise AnalysisError(
+            "anterior_anat aligned with fem_Z or fem_X — cannot define orthogonal fem_Y"
+        )
     fem_Y = fem_Y / fem_Y_norm
+    assert abs(np.dot(fem_X, fem_Y)) < 1e-6, "fem_X . fem_Y must be ~0 after Gram-Schmidt"
 
     results["fem_cs"] = {"origin": dist_fem, "X": fem_X, "Y": fem_Y, "Z": fem_Z}
 
@@ -647,8 +676,21 @@ def step_3(poi: POI_Global):
     if np.dot(tib_X, plateau_line) < 0:
         tib_X = -tib_X
 
-    tib_Y = np.cross(tib_Z, tib_X)
-    tib_Y = tib_Y / norm(tib_Y)
+    # Y = anatomic anterior, derived from the same anterior_anat reference
+    # as fem_Y. Avoids the chirality of cross(tib_Z, tib_X), which produces
+    # opposite anatomical directions for left vs right legs and causes
+    # TTA, posterior_slope_*, mMPPTA, mLPPTA, PTJ_AP* to flip sign by side.
+    # Gram-Schmidt against tib_X for orthonormality of the (X, Y, Z) basis.
+    tib_Y = (anterior_anat
+             - np.dot(anterior_anat, tib_Z) * tib_Z
+             - np.dot(anterior_anat, tib_X) * tib_X)
+    tib_Y_norm = norm(tib_Y)
+    if tib_Y_norm < 1e-10:
+        raise AnalysisError(
+            "anterior_anat aligned with tib_Z or tib_X — cannot define orthogonal tib_Y"
+        )
+    tib_Y = tib_Y / tib_Y_norm
+    assert abs(np.dot(tib_X, tib_Y)) < 1e-6, "tib_X . tib_Y must be ~0 after Gram-Schmidt"
     results["tib_cs"] = {"origin": prox_tib, "X": tib_X, "Y": tib_Y, "Z": tib_Z}
 
     logger.info("\nTibial CS (origin = prox_tib_center):")
@@ -973,13 +1015,68 @@ def step_4(poi: POI_Global):
     delta_anterior_fva = np.dot(prox_projected - dist_projected, fem_Y)
     if delta_anterior_fva < 0:
         version_angle = -version_angle
-    if version_angle < -90:
-        version_angle = version_angle + 180
-    if version_angle > 90:
-        version_angle = 180 - version_angle
     angles["FVA"] = version_angle
     angles["femoral_version"] = version_angle
     logger.info(f"  FVA: {version_angle:.1f} deg (positive = anteversion)")
+
+    # =====================================================================
+    # H.2) FEMORAL VERSION — TANGENT-PCL CONVENTION
+    # =====================================================================
+    # Same proximal reference (femoral neck axis) as the Veerman FVA above,
+    # but the distal reference is the tangent-PCL: a line through the
+    # most-posterior point of each condyle in the femoral CS, instead of
+    # the kinematic cylinder axis. This corresponds to the classical
+    # radiology measurement (Yoshioka/Yoshikawa convention) and matches
+    # tangent-line measurements made on axial CT slices.
+    #
+    # The two FVA values agree within ~3 deg in patients with symmetric
+    # posterior condyles, but can diverge by 10-15 deg in cases of
+    # asymmetric or post-traumatic condylar morphology. A divergence
+    # warning is emitted when the two methods disagree by > 8 deg.
+    logger.info("\n--- Femoral version (FVA tangent-PCL) ---")
+
+    med_tangent_pt = _most_posterior_point(
+        meshes["fem_condyle_medial"], fem_Y, fem_Z, dist_fem
+    )
+    lat_tangent_pt = _most_posterior_point(
+        meshes["fem_condyle_lateral"], fem_Y, fem_Z, dist_fem
+    )
+    results["pcl_tangent_med"] = med_tangent_pt
+    results["pcl_tangent_lat"] = lat_tangent_pt
+
+    tangent_pcl = lat_tangent_pt - med_tangent_pt
+    if np.dot(tangent_pcl, medial_dir_fva) > 0:
+        # medial_dir_fva points medial; flip tangent_pcl so it also points medial
+        tangent_pcl = -tangent_pcl
+
+    dist_projected_tp = tangent_pcl - np.dot(tangent_pcl, fem_Z_axis) * fem_Z_axis
+    if norm(dist_projected_tp) < 1e-10:
+        raise AnalysisError("Tangent-PCL aligned with femoral Z")
+    dist_projected_tp = dist_projected_tp / norm(dist_projected_tp)
+
+    version_angle_tp = math.degrees(math.acos(
+        np.clip(np.dot(prox_projected, dist_projected_tp), -1.0, 1.0)
+    ))
+    delta_anterior_tp = np.dot(prox_projected - dist_projected_tp, fem_Y)
+    if delta_anterior_tp < 0:
+        version_angle_tp = -version_angle_tp
+
+    angles["FVA_tangent_posterior"] = version_angle_tp
+    logger.info(
+        f"  FVA_tangent_posterior: {version_angle_tp:.1f} deg "
+        f"(positive = anteversion, tangent-PCL convention)"
+    )
+
+    fva_method_div = abs(version_angle - version_angle_tp)
+    angles["FVA_method_divergence"] = fva_method_div
+    if fva_method_div > 8.0:
+        w = (
+            f"WARN: FVA (Veerman cylinder, {version_angle:+.1f} deg) and "
+            f"FVA_tangent_posterior ({version_angle_tp:+.1f} deg) diverge by "
+            f"{fva_method_div:.1f} deg — likely asymmetric condylar morphology"
+        )
+        logger.warning(w)
+        results["warnings"].append(w)
 
     logger.info("\n--- Tibial torsion (TTA) ---")
     tib_Z_axis = tib_cs["Z"]
@@ -1180,7 +1277,9 @@ def step_5(poi: POI_Global, results, output_path=None):
         "mLPPTA": "Mech. lateral posterior proximal tibial angle (Fig.7c2)",
         "PTJ_APM": "Proximal tibial joint AP orientation medial",
         "PTJ_APL": "Proximal tibial joint AP orientation lateral",
-        "FVA": "Femoral version angle (Fig.7d1, positive = anteversion)",
+        "FVA": "Femoral version angle (Veerman cylinder-axis convention, Fig.7d1, positive = anteversion)",
+        "FVA_tangent_posterior": "Femoral version angle (tangent-PCL convention; Yoshioka-style, positive = anteversion)",
+        "FVA_method_divergence": "Absolute difference |FVA - FVA_tangent_posterior| in deg",
         "TTA": "Tibial torsion angle (Fig.7d2, positive = external)",
         "femoral_version": "Femoral version (legacy alias for FVA)",
         "tibial_torsion": "Tibial torsion (legacy alias for TTA)",
@@ -1269,6 +1368,8 @@ def step_5_flat(results, case_id):
         "posterior_slope_combined_deg": a.get("posterior_slope_combined"),
         # Torsion
         "FVA_deg": a.get("FVA"),
+        "FVA_tangent_posterior_deg": a.get("FVA_tangent_posterior"),
+        "FVA_method_divergence_deg": a.get("FVA_method_divergence"),
         "TTA_deg": a.get("TTA"),
         # Joint centers in global mm
         "fem_head_center_x_mm": _safe_global("fem_head_center", 0),
