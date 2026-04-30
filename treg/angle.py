@@ -191,9 +191,9 @@ def compute_angles(poi_original: POI_Global, out_poi=None, out_poi_orthosys=None
     idx += 1
     _angle_3("FHC", "FNP", "TAC", "TKC", "TMCM", "TLCL", "HKA_2D", 1)  # good
     idx += 1
-    _angle_2("TTP", "FHC", "FNP", "FHC", "LPFA", 1)  # Good/OK
+    _angle_2("TGT", "FHC", "FNP", "FHC", "LPFA", 1)
     idx += 1
-    _angle_2("FHC", "TTP", "FADP", "FAAP", "MPFA", 1)  # OK
+    _angle_2("FHC", "FNC", "FNP", "FHC", "MPFA", 1)
     idx += 1
     _angle_2("FHC", "FNC", "FADP", "FAAP", "NSA", 1)  # worse
     idx += 1
