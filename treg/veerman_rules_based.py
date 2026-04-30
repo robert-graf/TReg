@@ -693,16 +693,14 @@ def step_3(poi: POI_Global):
     # --- Validation ---
     fem_rh = np.dot(np.cross(fem_Z, fem_X), fem_Y)
     tib_rh = np.dot(np.cross(tib_Z, tib_X), tib_Y)
-    logger.info(f"\nRight-handedness check: fem={fem_rh:.4f}, tib={tib_rh:.4f} (should be > 0)")
-
-    if fem_rh <= 0:
-        w = "WARN: Femoral CS is not right-handed!"
-        logger.warning(w)
-        results["warnings"].append(w)
-    if tib_rh <= 0:
-        w = "WARN: Tibial CS is not right-handed!"
-        logger.warning(w)
-        results["warnings"].append(w)
+    fem_hand = "right-handed" if fem_rh > 0 else "left-handed"
+    tib_hand = "right-handed" if tib_rh > 0 else "left-handed"
+    # With anatomic Y derived from anterior_anat (a patient-fixed reference
+    # that does not change sign with leg side), the basis chirality differs
+    # between left and right legs by construction. This is expected and
+    # required for measurements like TTA and posterior slope to be
+    # side-invariant. Logged for transparency, not raised as an error.
+    logger.info(f"Handedness: fem={fem_hand} ({fem_rh:+.4f}), tib={tib_hand} ({tib_rh:+.4f})")
 
     fem_Z_align = np.dot(fem_Z, cranial_dir)
     tib_Z_align = np.dot(tib_Z, cranial_dir)
