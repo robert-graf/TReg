@@ -181,9 +181,24 @@ def compute_angles(poi_original: POI_Global, out_poi=None, out_poi_orthosys=None
         v1[clear_id] = v2[clear_id] = v3[clear_id] = 0
         angles[name] = angle_deg(v3, v1) + angle_deg(v3, v2)
 
+    def _angle_2_signed_axial(a, b, c, d, name):
+        # Signed angle from (c->d) to (a->b) projected onto the local X-Y (axial)
+        # plane via atan2(cross, dot). The local frame has X = lateral and
+        # Y = anterior (Y sign-corrected via TMCA-TMCP in `ortho`), so the sign
+        # is anatomically grounded for both sides:
+        #   femoral version: positive = anteversion, negative = retroversion
+        #   tibial torsion : positive = external, negative = internal
+        v1 = _line(a, b, name)
+        v2 = _line(c, d, name)
+        cross = v1[0] * v2[1] - v1[1] * v2[0]
+        dot = v1[0] * v2[0] + v1[1] * v2[1]
+        angles[name] = float(np.degrees(np.arctan2(cross, dot)))
+
     _angle_2("FLM", "TMM", "TLCP", "TMCP", "tibia_torsion_2D", 2)  # equally bad
+    _angle_2_signed_axial("FLM", "TMM", "TLCP", "TMCP", "tibia_torsion_2D_signed")
     idx += 1
     _angle_2("FNC", "FHC", "FLCP", "FMCP", "femoral_torsion_2D", 2, flip_angel=180)  # nicht TGT?, worse
+    _angle_2_signed_axial("FNC", "FHC", "FLCP", "FMCP", "femoral_torsion_2D_signed")
     idx += 1
     _angle_2("FNP", "FHC", "FMCD", "FLCD", "mLDFA", 1)  # good
     idx += 1
@@ -191,9 +206,9 @@ def compute_angles(poi_original: POI_Global, out_poi=None, out_poi_orthosys=None
     idx += 1
     _angle_3("FHC", "FNP", "TAC", "TKC", "TMCM", "TLCL", "HKA_2D", 1)  # good
     idx += 1
-    _angle_2("TTP", "FHC", "FNP", "FHC", "LPFA", 1)  # Good/OK
+    _angle_2("TGT", "FHC", "FNP", "FHC", "LPFA", 1)
     idx += 1
-    _angle_2("FHC", "TTP", "FADP", "FAAP", "MPFA", 1)  # OK
+    _angle_2("FHC", "FNC", "FNP", "FHC", "MPFA", 1)
     idx += 1
     _angle_2("FHC", "FNC", "FADP", "FAAP", "NSA", 1)  # worse
     idx += 1
