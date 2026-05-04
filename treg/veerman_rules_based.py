@@ -109,8 +109,8 @@ ID_TO_MESH_NAME = {
     11: "tibia_plateau_medial",
     5: "tibia_plateau_lateral",
     18: "ankle_malleolus_medial",
-    17: "ankle_malleolus_lateral",
-    9: "ankle_malleolus_mid",
+    9: "ankle_malleolus_lateral",
+    17: "ankle_malleolus_mid",
 }
 
 MESH_NAME_TO_ID = {v: k for k, v in ID_TO_MESH_NAME.items()}
