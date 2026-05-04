@@ -51,7 +51,30 @@ def fetch(path: Path | str, seg: bool):
     if p.exists():
         to_nii(p, seg).save(path)
     else:
+        "/media/data/robert/dataset-myelom/dataset-myelom/derivatives-VIBESeg-12-/CTFU03251/ses-20180906/sub-CTFU03251_ses-20180906_sequ-202_seg-VIBESeg-11-lr_msk.nii.gz"
+        "sub-CTFU03251_ses-20180906_sequ-202_seg-TotalVibeSegmentator-11_msk.nii.gz"
+
+        if "VIBESeg-11-lr" in p.name:
+            file = BIDS_FILE(
+                p, "/run/user/1000/gvfs/smb-share:server=172.21.251.64,share=nas/datasets_processed/CT_spine/dataset-myelom"
+            ).get_changed_path("nii.gz", "msk", parent="derivatives-total-11-v3", info={"seg": "TotalVibeSegmentator-11"})
+            fetch(file, seg)
+            file2 = BIDS_FILE(
+                p, "/run/user/1000/gvfs/smb-share:server=172.21.251.64,share=nas/datasets_processed/CT_spine/dataset-myelom"
+            ).get_changed_path("nii.gz", "msk", parent="derivatives-total-11-v3", info={"seg": "TotalVibeSegmentator-11-roi"})
+
+            from treg.split_seg11 import split_step_one
+
+            if not file2.exists():
+                to_nii(file, True).clamp(0, 1).rescale((4, 4, 4)).save(file2)
+                input("add left=2 to this file an press enter")
+            lr_roi = to_nii(file2, True)
+            assert lr_roi.max() == 2, lr_roi.unique()
+            nii = split_step_one(to_nii(file, True), lr_roi.dilate_msk(2).resample_from_to_(file))
+            nii.save(path)
+            return path
         logger.on_fail(path, "does not exist")
+        exit()
     # assert p.exists(), p
 
 

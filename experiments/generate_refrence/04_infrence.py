@@ -42,7 +42,7 @@ if __name__ == "__main__":
         out_folder.mkdir(exist_ok=True)
         try:
             out_file = run_all_from_atlas(
-                Path("/media/data/robert/code/TReg/input/userstudy/pois/Robert_Model_1_old"),
+                Path("/media/data/robert/code/TReg/input/userstudy/old/Robert_Model_1_old"),
                 target,
                 atlas,
                 atlas_poi.resample_from_to(atlas),
