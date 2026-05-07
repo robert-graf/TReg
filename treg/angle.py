@@ -83,9 +83,9 @@ def ortho(FHC, Orth_FHC, P1, P2, poi_original, k=100):
 
 def build_frame(P1, P2, Orth_FHC, Y_point, FHC):
     # Raw axes
-    X = P2 - P1
-    Y = Y_point - Orth_FHC
-    Z = FHC - Orth_FHC
+    X = P2 - P1                       # medial -> lateral (anatomic)
+    Y_anat = Y_point - Orth_FHC       # anatomic anterior (TMCA-TMCP corrected in `ortho`)
+    Z = FHC - Orth_FHC                # cranial
 
     # Normalize Z first (most stable anatomical reference)
     Z = Z / np.linalg.norm(Z)
@@ -94,8 +94,14 @@ def build_frame(P1, P2, Orth_FHC, Y_point, FHC):
     X = X - np.dot(X, Z) * Z
     X = X / np.linalg.norm(X)
 
-    # Enforce orthogonality
-    Y = np.cross(Z, X)
+    # Y = anatomic anterior, Gram-Schmidt against Z and X. Do NOT recompute as
+    # cross(Z, X): that discards the TMCA-TMCP side-correction from `ortho()`
+    # and yields posterior Y on left knees, sign-inverting every signed axial
+    # angle (femoral_torsion_2D_signed, tibia_torsion_2D_signed) on the left
+    # side. Allowing the basis to be left-handed on left knees is the same
+    # construction used by Veerman et al. KSSTA 2025 to keep signed angles
+    # side-invariant.
+    Y = Y_anat - np.dot(Y_anat, Z) * Z - np.dot(Y_anat, X) * X
     Y = Y / np.linalg.norm(Y)
 
     # Rotation matrix (columns = axes)
