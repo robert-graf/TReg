@@ -8,7 +8,7 @@ from TPTBox.core.poi_fun.save_mkr import MKR_Lines
 out = str(Path(__file__).parent.parent)
 sys.path.append(out)
 
-from constants import POI_MAP
+from treg.constants import POI_MAP
 
 rad2deg = 180.0 / np.pi
 
@@ -83,9 +83,9 @@ def ortho(FHC, Orth_FHC, P1, P2, poi_original, k=100):
 
 def build_frame(P1, P2, Orth_FHC, Y_point, FHC):
     # Raw axes
-    X = P2 - P1                       # medial -> lateral (anatomic)
-    Y_anat = Y_point - Orth_FHC       # anatomic anterior (TMCA-TMCP corrected in `ortho`)
-    Z = FHC - Orth_FHC                # cranial
+    X = P2 - P1  # medial -> lateral (anatomic)
+    Y_anat = Y_point - Orth_FHC  # anatomic anterior (TMCA-TMCP corrected in `ortho`)
+    Z = FHC - Orth_FHC  # cranial
 
     # Normalize Z first (most stable anatomical reference)
     Z = Z / np.linalg.norm(Z)
