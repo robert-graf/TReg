@@ -224,3 +224,6 @@ temp*
 ssm.pkl
 *.nrrd
 *_old.py
+
+input
+results
