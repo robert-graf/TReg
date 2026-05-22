@@ -24,7 +24,8 @@ def get_groups():
     intra = df_all[df_all.evaluator == "Julius"].dropna(subset=["X", "Y", "Z"])
     inter = df_all[df_all.version == "V1"].dropna(subset=["X", "Y", "Z"])
     model = df_all[df_all.evaluator == "Robert_Model"].dropna(subset=["X", "Y", "Z"])
-    return {"intra": intra, "inter": inter, "model": model}
+    Veerman_Model = df_all[df_all.evaluator == "Veerman_Model"].dropna(subset=["X", "Y", "Z"])
+    return {"intra": intra, "inter": inter, "treg-naive": model, "treg-veerman": Veerman_Model}
 
 
 # def euclid_fig(pairwise=False):

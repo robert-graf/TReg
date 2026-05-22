@@ -35,6 +35,9 @@ raters_all = [
     "Robert_Model_1",
     "Robert_Model_2",
     "Robert_Model_3",
+    "Veerman_Model_1",
+    "Veerman_Model_2",
+    "Veerman_Model_3",
     # "SSM_Model_1",
 ]
 

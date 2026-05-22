@@ -72,6 +72,12 @@ def main():
         for i in (path_annotator_poi / u).iterdir():
             if "xlsx" in i.name:
                 continue
+            if "nii.gz" in i.name:
+                continue
+            if "Veerman_Model" in u and "mrk.json" in i.name:
+                continue
+            if i.is_dir():
+                continue
             left = "left" in i.name.lower()
             right = "right" in i.name.lower()
             assert left or right, i
@@ -89,7 +95,8 @@ def main():
 
             if u in flips_model:
                 poi.map_labels_(mapp_models_filp)
-            if "Robert_Model" not in u:
+
+            if "Robert_Model" not in u and "Veerman_Model" not in u:
                 if "SSM" in u.upper():
                     poi.info["label_name"] = mapping1.copy()
                     poi.info["label_group_name"] = mapping2.copy()
@@ -107,7 +114,11 @@ def main():
                             )
 
                     # if "SSM" not in u.upper():
-
+                    if mapping2 != poi.info["label_group_name"]:
+                        try:
+                            poi.info["label_group_name"] = {int(a): b for a, b in poi.info["label_group_name"].items()}
+                        except Exception:
+                            pass
                     assert mapping2 == poi.info["label_group_name"], (u, mapping2, poi.info["label_group_name"])
 
             else:
@@ -120,13 +131,20 @@ def main():
                     a, b = mapping[v]
                     c, d = str(k).replace("(", "").replace(")", "").split(",")
                     label_map_full[a.value, b.value] = int(c), int(d)
+
                 poi.map_labels_(label_map_full)
+
                 poi.info["label_name"] = mapping1
                 poi.info["label_group_name"] = mapping2
             all_data[u][key] = {"file": i, "poi": poi}
             if poi.info.get("Side") is None:
                 poi.info["Side"] = side.upper()
             (path_mrk / u).mkdir(exist_ok=True, parents=True)
+            if "Veerman_Model" in u:
+                poi = poi.sort()
+
+                poi.save(path_mrk / u / (key + ".json"), make_parents=True)
+
             poi.sort().save_mrk(path_mrk / u / (key + ".mrk.json"))
 
 

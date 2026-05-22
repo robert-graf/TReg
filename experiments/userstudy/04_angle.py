@@ -60,7 +60,8 @@ def get_groups():
     intra = df_all[df_all.evaluator == "Julius"]
     inter = df_all[df_all.version == "V1"]
     model = df_all[df_all.evaluator == "Robert_Model"]
-    return {"intra": intra, "inter": inter, "model": model}
+    Veerman_Model = df_all[df_all.evaluator == "Veerman_Model"]
+    return {"intra": intra, "inter": inter, "treg-naive": model, "treg-veerman": Veerman_Model}
 
 
 def diff_fig(pairwise=False):
@@ -74,14 +75,7 @@ def diff_fig(pairwise=False):
                     mean_angle = circular_mean_deg(v)
                     d = [angular_diff_deg(val, mean_angle) for val in v]
                     for i in d:
-                        pairs.append(
-                            {
-                                "filename": fname,
-                                "angle": a,
-                                "group": f"{name}-rater",
-                                "abs_3d_diff": i,
-                            }
-                        )
+                        pairs.append({"filename": fname, "angle": a, "group": f"{name}-rater", "abs_3d_diff": i})  # noqa: PERF401
                 else:
                     mean_angle = circular_mean_deg(v)
                     d = np.mean([angular_diff_deg(val, mean_angle) for val in v])

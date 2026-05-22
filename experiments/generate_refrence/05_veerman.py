@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     rows = []  # <-- collect all results here
 
-    for model_idx in range(1, 2):
+    for model_idx in range(1, 4):
         key = str(model_idx)
         in_folder = path_annotator_poi / f"Robert_Model_{model_idx}"
         out_folder = path_annotator_poi / f"Veerman_Model_{model_idx}"

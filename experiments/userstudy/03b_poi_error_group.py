@@ -24,7 +24,8 @@ def get_groups():
     intra = df_all[df_all.evaluator == "Julius"].dropna(subset=["X", "Y", "Z"])
     inter = df_all[df_all.version == "V1"].dropna(subset=["X", "Y", "Z"])
     model = df_all[df_all.evaluator == "Robert_Model"].dropna(subset=["X", "Y", "Z"])
-    return {"intra": intra, "inter": inter, "model": model}
+    Veerman_Model = df_all[df_all.evaluator == "Veerman_Model"].dropna(subset=["X", "Y", "Z"])
+    return {"intra": intra, "inter": inter, "treg-naive": model, "treg-veerman": Veerman_Model}
 
 
 def outgroup_euclid_fig(to_mean=False):
@@ -34,8 +35,11 @@ def outgroup_euclid_fig(to_mean=False):
     # Define the pairs you want to compare
     comparisons = [
         ("inter", "intra"),
-        ("inter", "model"),
-        ("intra", "model"),
+        ("inter", "treg-veerman"),
+        ("intra", "treg-veerman"),
+        ("inter", "treg-naive"),
+        ("intra", "treg-naive"),
+        ("treg-veerman", "treg-naive"),
     ]
 
     for g1_name, g2_name in comparisons:

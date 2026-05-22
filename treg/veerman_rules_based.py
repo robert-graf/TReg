@@ -147,6 +147,7 @@ _buffer = {}
 
 
 def get_stl(nii: NII, stem="fem_head", stl_folder: Path | None = None, side: Literal["R", "L"] = "L"):
+
     out = Path(stl_folder) / f"{stem}_{side}.stl" if stl_folder else None
     if out is not None and out in _buffer:
         return _buffer[out]
@@ -166,7 +167,6 @@ def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, sid
     logger.info("=" * 60, verbose=verbose)
     logger.info("Load STLs", verbose=verbose)
     logger.info("=" * 60, verbose=verbose)
-
     results["side"] = side
     results["stl_folder"] = stl_folder
     results["meshes"] = {}

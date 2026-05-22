@@ -42,9 +42,15 @@ def export_angles_to_excel(raters, base_dir="pois_mrk", out_xlsx=out_userstudy /
         rater_dir = Path(base_dir) / rater
         ref[rater] = {}
         for f in sorted(rater_dir.glob("*.mrk.json")):
-            poi_original = POI_Global.load(f)
-            ref[rater][f.name] = poi_original
+            print(f)
+            if "Veerman_Model" in rater:
+                s = str(f.absolute()).replace("mrk.json", "json")
+                poi_original = POI_Global.load(s)
+                assert "angles" in poi_original.info, (s, poi_original.info)
+            else:
+                poi_original = POI_Global.load(f)
 
+            ref[rater][f.name] = poi_original
             # if rater in copy_from_rules_based:
             #    rater_other = copy_from_rules_based[rater]
             #    poi_other = ref[rater_other][f.name]
@@ -56,7 +62,12 @@ def export_angles_to_excel(raters, base_dir="pois_mrk", out_xlsx=out_userstudy /
             #    }:  # "FADP", "FAAP"
             #        a, b = POI_MAP[s]
             #        poi_original[a, b] = poi_other[a, b]
-            angles, _, _ = compute_angles(poi_original, lagacy=True)
+            if "angles" in poi_original.info:
+                angles = poi_original.info["angles"]
+            else:
+                assert "Veerman_Model" not in rater, (rater, poi_original.info)
+                print(rater)
+                angles, _, _ = compute_angles(poi_original, lagacy=True)
 
             row = {"rater": rater, "file": f.name}
 
