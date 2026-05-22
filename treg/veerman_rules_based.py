@@ -24,7 +24,7 @@ from typing import Literal
 import numpy as np
 import stl
 import trimesh
-from numpy.linalg import eigh, lstsq, norm, svd
+from numpy.linalg import norm, svd
 from TPTBox import NII, POI, POI_Global, Print_Logger, to_nii
 from TPTBox.core.poi_fun.save_mkr import MKR_Lines
 
@@ -775,13 +775,13 @@ def step_4(poi: POI_Global):
 
     fem_cs = results["fem_cs"]
     tib_cs = results["tib_cs"]
-    side = results["side"]
+    # side = results["side"]
     cranial_dir = results["cranial_dir"]
     meshes = results["meshes"]
     angles = {}
 
     fem_Z = fem_cs["Z"]
-    fem_X = fem_cs["X"]
+    # fem_X = fem_cs["X"]
     fem_Y = fem_cs["Y"]
     tib_Z = tib_cs["Z"]
     tib_Y = tib_cs["Y"]
@@ -803,7 +803,7 @@ def step_4(poi: POI_Global):
     for condyle_name, label in [("fem_condyle_medial", "med"), ("fem_condyle_lateral", "lat")]:
         pts = meshes[condyle_name].vertices
         projections = np.dot(pts - dist_fem, fem_Z)
-        n_distal = max(1, int(math.ceil(len(pts) * 0.02)))
+        n_distal = max(1, math.ceil(len(pts) * 0.02))
         distal_indices = np.argpartition(projections, n_distal)[:n_distal]
         distal_pt = pts[distal_indices].mean(axis=0)
         results[f"{label}_condyle_distal_pt"] = distal_pt

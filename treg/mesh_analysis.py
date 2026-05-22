@@ -205,6 +205,7 @@ def fit_cylinder(points, cranial_dir=None):
             initial = ratio_result
     else:
         initial = best_rmse_result
+    assert initial is not None
     refined = _refine_axis(pts, centroid, centered, initial["axis"], cranial_dir=cranial_dir)
     ret = refined if refined is not None else initial
     assert ret is not None

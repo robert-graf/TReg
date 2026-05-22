@@ -46,7 +46,7 @@ flips_model = [
     "Robert_Model_2",
     "Robert_Model_3",
 ]
-mapp_models_filp = {
+mapp_models_flip = {
     (13, 16): (13, 17),
     (13, 17): (13, 16),
     (13, 21): (13, 14),
@@ -158,7 +158,7 @@ def icc(Y, icc_type="ICC(2,1)"):
     assessing rater reliability. Psychological bulletin, 86(2), 420.
     icc1:  x_ij = mu + beta_j + w_ij
     icc2/3:  x_ij = mu + alpha_i + beta_j + (ab)_ij + epsilon_ij
-    Code modifed from nipype algorithms.icc
+    Code modified from nipype algorithms.icc
     https://github.com/nipy/nipype/blob/master/nipype/algorithms/icc.py
 
     Args:
@@ -192,7 +192,7 @@ def icc(Y, icc_type="ICC(2,1)"):
 
     MSE = SSE / dfe
 
-    # Sum square column effect - between colums
+    # Sum square column effect - between columns
     SSC = ((np.mean(Y, 0) - mean_Y) ** 2).sum() * n
     MSC = SSC / dfc  # / n (without n in SPSS results)
 

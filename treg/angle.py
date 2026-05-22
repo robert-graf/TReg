@@ -62,7 +62,7 @@ def color_from_idx(i, n=12):
 def lotfus_punkt(FHC, P1, P2):
     # Richtungsvektor der Geraden a
     a_vec = P2 - P1
-    # Projektion von FHC auf die Gerade
+    # Projection von FHC auf die Gerade
     t = np.dot(FHC - P1, a_vec) / np.dot(a_vec, a_vec)
     Orth_FHC = P1 + t * a_vec
     return Orth_FHC
