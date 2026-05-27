@@ -1,22 +1,11 @@
-import csv
-import logging
-import math
-import os
 import sys
-from functools import partial
 from pathlib import Path
-from typing import Literal
 
-import numpy as np
-import stl
-import trimesh
-from numpy.linalg import norm, svd
-from TPTBox import NII, POI, POI_Global, Print_Logger, to_nii
-from TPTBox.core.poi_fun.save_mkr import MKR_Lines
+from TPTBox import NII, POI_Global, Print_Logger
 
 out = str(Path(__file__).parent.parent)
 sys.path.append(out)
-from treg.mesh_analysis import AnalysisError, MeshWrapper, fit_cylinder
+from treg.mesh_analysis import MeshWrapper
 from treg.veerman_rules_based import stl_to_trimesh
 
 logger = Print_Logger(prefix="subreg_2_poi")
