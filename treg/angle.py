@@ -293,7 +293,7 @@ def compute_angles(poi_original: POI_Global, out_poi=None, out_poi_orthosys=None
 
 
 if __name__ == "__main__":
-    poi = POI_Global.load("/media/data/robert/code/TReg/data/sub-atlas_seg-poi_poi.json")
+    poi = POI_Global.load("/media/data/robert/code/TReg/data/leg/sub-atlas_seg-poi_poi.json")
     a, b, c = compute_angles(poi, out_poi="/media/data/robert/code/TReg/data/lines2.mrk.json", lagacy=True)
     print(a)
     print(list(a.keys()))

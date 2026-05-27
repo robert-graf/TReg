@@ -64,9 +64,9 @@ def run_all(
     files: dict,
     sides: list,
     # Atlas
-    atlas_seg_file: str | Path = "data/sub-atlas_seg-VIBESeg-12_msk.nii.gz",  # default is a left leg
-    atlas_file: str | Path = "data/sub-atlas_seg-poi_poi.json",
-    atlas_seg_subdivided_file: str | Path | None = "data/sub-atlas_seg-subregion_msk.nii.gz",
+    atlas_seg_file: str | Path = "data/leg/sub-atlas_seg-VIBESeg-12_msk.nii.gz",  # default is a left leg
+    atlas_file: str | Path = "data/leg/sub-atlas_seg-poi_poi.json",
+    atlas_seg_subdivided_file: str | Path | None = "data/leg/sub-atlas_seg-subregion_msk.nii.gz",
     # Parameters
     lr: float = 0.001,
     max_steps: int = 1500,
