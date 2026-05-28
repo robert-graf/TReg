@@ -141,7 +141,7 @@ def get_tasks_ct():
             [atlas_poi_folder / "ribcage_l.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
             weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": 0.001},
-            others={"rib": atlas_templates_folder / "rib_left.nii.gz.nii.seg.nrrd"},
+            others={"rib": atlas_templates_folder / "rib_left.nii.gz"},
         ),
         Task(
             "ribs-right",
@@ -149,7 +149,7 @@ def get_tasks_ct():
             [atlas_poi_folder / "ribcage_r.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
             weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": 0.001},
-            others={"rib": atlas_templates_folder / "rib_right.nii.gz.nii.seg.nrrd"},
+            others={"rib": atlas_templates_folder / "rib_right.nii.gz"},
         ),
         Task(
             "feet-left",
