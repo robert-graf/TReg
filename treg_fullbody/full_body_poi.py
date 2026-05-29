@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from dataclasses import dataclass, field
@@ -5,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from TPTBox import BIDS_FILE, NII, POI, Image_Reference, No_Logger, POI_Global, calc_centroids, to_nii
+from TPTBox import BIDS_FILE, NII, POI, BIDS_Global_info, Image_Reference, No_Logger, POI_Global, calc_centroids, to_nii
 from TPTBox.core.bids_files import Buffered_BIDS_Global_info
 from TPTBox.core.vert_constants import Full_Body_Instance, Full_Body_Instance_Vibe, Vertebra_Instance
 
@@ -629,7 +630,19 @@ if __name__ == "__main__":
     #    x / "sub-CTFU00066_ses-02970_sequ-3_mod-ct_seg-vert_msk.nii.gz",
     #    # override=True,
     # )
-    bgi = Buffered_BIDS_Global_info("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom/", ["derivatives-final"])
+    p = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom/")
+    if p.exists():
+        bgi = Buffered_BIDS_Global_info(p, ["derivatives-final"])
+    else:
+        # Load private NAS path from local config file
+        config_path = Path(__file__).parent.parent / ".config.json"
+
+        with open(config_path) as f:
+            config = json.load(f)
+        nas_path = config["dataset_myelom_path"]
+        bgi = BIDS_Global_info(nas_path, ["derivatives-final"])
+        gpu = 0
+
     ## Create job list
     all_files = []
     for sub, subj in bgi.enumerate_subjects(shuffle=False, sort=True):
@@ -657,6 +670,8 @@ if __name__ == "__main__":
     #
     # random.seed(42)
     random.shuffle(all_files)
+    print()
+    print(len(all_files))
     # all_files = all_files[:10]
     for e, f in enumerate(all_files, 1):
         print(f"{e:3}/{len(all_files):3}                   ")
