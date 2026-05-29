@@ -1,3 +1,4 @@
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -56,7 +57,7 @@ class Task:
     mapping_target: dict | None = None
     gt_rib: Path = atlas_templates_folder / "sub-CTFU04045_ses-02480_sequ-204_mod-ct_seg-vert_msk.nii.gz"
     gt_12: Path = atlas_templates_folder / "sub-CTFU04045_ses-02480_sequ-204_mod-ct_seg-VIBESeg-12_msk.nii.gz"
-    weights: dict = field(default_factory=lambda: {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": 0.001})
+    weights: dict = field(default_factory=lambda: {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [1, 0.1, 0.001, 0]})
 
 
 def get_tasks_ct():
@@ -139,18 +140,16 @@ def get_tasks_ct():
             [FB.rib_left],
             [atlas_poi_folder / "ribcage_l.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
-            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": 0.001},
-            others={"rib": atlas_templates_folder / "rib_left.nii.gz.nii.seg.nrrd"},
-            # subreg_POIs=[SubregPOI(idx=idx, idx_subreg=1, poi_idx=(idx, 0), algorithm="cms") for idx in range(40, 51)],
+            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
+            others={"rib": atlas_templates_folder / "rib_left.nii.gz"},
         ),
         Task(
             "ribs-right",
             [FB.rib_right],
             [atlas_poi_folder / "ribcage_r.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
-            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": 0.001},
+            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
             others={"rib": atlas_templates_folder / "rib_right.nii.gz"},
-            # subreg_POIs=[SubregPOI(idx=idx, idx_subreg=1, poi_idx=(idx, 0), algorithm="cms") for idx in range(40, 51)],
         ),
         Task(
             "feet-left",
@@ -187,7 +186,7 @@ def change_rib_reference(
     if ribs_shorten is None:
         ribs_shorten = [Vertebra_Instance.T11, Vertebra_Instance.T12, Vertebra_Instance.L1, Vertebra_Instance.T13]
     if rib_length is None:
-        rib_lengths = [38, 24, 10]  # [38, 24, 10]
+        rib_lengths = [38, 30, 20]  # [38, 24, 10]
     logger.print("change_rib_reference")
     assert atlas_fov.orientation == ("P", "I", "R"), atlas_fov.orientation
     offset = 0 if "left" not in str(task.task_id) else 100
@@ -222,12 +221,10 @@ def change_rib_reference(
         rib_length = rib_length[v]["rib_length"]
         if rib_length > rib_lengths[0]:
             continue
-        if r == r.T13:
-            r = r.L1
         rib = atlas_fov.extract_label(r.RIB)
         subs = others[key_others]
         ids = [i for i, l in enumerate(rib_lengths, 1) if rib_length <= l]
-        print("Shorten", r, "by", ids)
+        print(r, "Shorten", r, "by", ids)
         # change reference for short ribs
         rm = subs.extract_label(ids) * rib
         others[key_others][rm != 0] = 0
@@ -239,6 +236,7 @@ def change_rib_reference(
             poi_atlas.remove_((r.RIB + offset, 3))
         if 3 in ids:
             poi_atlas.remove_((r.RIB + offset, 2))
+
     return poi_atlas, atlas_fov, others
 
 
@@ -274,7 +272,7 @@ def extract_label_for_task(
 
     selected = selected.reorient()
     selected.set_dtype_("smallest_uint")
-    selected.apply_crop_(selected.compute_crop(0, crop))
+    selected.apply_crop_(selected.compute_crop(0, crop, raise_error=False))
     return selected
 
 
@@ -383,8 +381,11 @@ def post_reg(
     mask_nii: NII | None = None,
 ):
     out_poi_final, out_atlas_final = _path(img, parent, task)
-    logger.print("make atlas_reg", nii_atlas_fov)
-    # atlas_reg = reg.transform_nii(nii_atlas_fov).set_dtype("smallest_uint")  # Transfering the atlas
+    # logger.print("make atlas_reg", nii_atlas_fov)
+    # atlas_reg = reg.transform_nii(nii_atlas_fov).set_dtype("smallest_uint")  # Transferring the atlas
+    # if data_target.clamp(0, 1) * atlas_reg.sum() == 0:
+    #    logger.on_fail("output empty. Saved nothing")
+    #    return
     # atlas_reg.save(out_atlas_final)
     atlas_reg2 = None
     for k, v in others.items():
@@ -464,15 +465,29 @@ def post_reg(
 
 def reg(task: Task, img: BIDS_FILE, seg_vibe12: Image_Reference, ribs: Image_Reference, parent: str, rib_pois: POI_Global | None = None):
     out_poi_final, out_final = _path(img, parent, task)
-
+    if len(task.input_pois) == 0 and len(task.others) != 0:
+        out = img.get_changed_path(
+            bids_format="msk",
+            parent=parent,
+            info={"seg": f"fov-{task.task_id}-{next(task.others.keys().__iter__())}"},
+        )
+        if out.exists():
+            return _path(img, parent, task)
     if out_poi_final.exists() or out_final.exists():
         logger.on_save(f"{out_poi_final.name=} exists; skip!")
         return _path(img, parent, task)
 
     ### Segs ###
     data_target = extract_label_for_task(task, seg_vibe12, ribs, is_target=True, crop=10)
-
+    if data_target.max() == 0:
+        return _path(img, parent, task)
     poi_atlas, nii_atlas_fov, poi_atlas_cms, others = get_atlas_poi(task, rib_pois=rib_pois)
+
+    u = data_target.unique()
+    if len(u) == 0:
+        logger.on_warning("No Segmentation in target")
+        return _path(img, parent, task)
+    nii_atlas_fov = nii_atlas_fov.extract_label(u, True)
     ##################
     logger.on_log(f"Running task: {task!s};\n{data_target.shape=}; {nii_atlas_fov.shape=}")
     reg = Template_Registration(
@@ -487,6 +502,7 @@ def reg(task: Task, img: BIDS_FILE, seg_vibe12: Image_Reference, ribs: Image_Ref
         finest_level=task.finest_level,
         weights=task.weights,
         poi_cms=poi_atlas_cms,  # Can be None, than it will be computed automaticly
+        gpu=gpu,
     )
     post_reg(reg, task, img, poi_atlas, nii_atlas_fov, data_target, others, parent)
     return _path(img, parent, task)
@@ -514,7 +530,7 @@ def get_rib_info(img_file: BIDS_FILE, rib_instance: Path, parent, compute_rib_sp
                 poi.info["label_name"][f"({x}, {7})"] = "rib_end_point"
                 poi[x, 7] = r.end_point
         poi.info["ribs"] = result_to_dict(result)
-        poi.to_cord_system(itk_coords=True).save(rib_stats)
+        poi.to_cord_system(itk_coords=True).save(rib_stats, make_parents=True)
         return poi
     else:
         if rib_stats.exists():
@@ -524,13 +540,26 @@ def get_rib_info(img_file: BIDS_FILE, rib_instance: Path, parent, compute_rib_sp
 
 
 def run_all(
-    img_file: BIDS_FILE, VIBESeg_12: Path, rib_instance: Path, parent="derivatives-treg", compute_rib_special_cases=True, override=False
+    img_file: BIDS_FILE,
+    VIBESeg_12: Path,
+    rib_instance: Path,
+    parent="derivatives-treg",
+    compute_rib_special_cases=True,
+    override=False,
+    make_bone=True,
 ):
+    os.nice(15)
+    if isinstance(rib_instance, BIDS_FILE):
+        rib_instance = rib_instance.get_nii_file()  # type: ignore
     if not VIBESeg_12.exists():
         logger.on_fail(VIBESeg_12, "missing; Skip!")
         return
-    out_poi_final = img.get_changed_path("json", "poi", parent=parent, info={"seg": "treg"})
-    out_atlas_final = img.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "treg"})
+    out_poi_final = img_file.get_changed_path("json", "poi", parent=parent, info={"seg": "treg"})
+    out_atlas_final = img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "treg"})
+
+    bone = img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "bone"})
+    if not bone.exists() and make_bone:
+        to_nii(VIBESeg_12, True).extract_label(Full_Body_Instance.bone(), True).save(bone)
     if out_atlas_final.exists() and out_atlas_final.exists() and not override:
         logger.on_ok(out_atlas_final.name, "exist; Skip!")
         return
@@ -564,6 +593,17 @@ def run_all(
         poi_final.join_left_(poi)
         # for i in
 
+    poi_veerman_left = out_poi_final.parent / "stl_L" / "poi.json"
+    poi_veerman_right = out_poi_final.parent / "stl_R" / "poi.json"
+
+    for poi, offset in [(poi_veerman_left, 0), (poi_veerman_right, 100)]:
+        poi = POI_Global.load(poi, itk_coords=True)
+        for k1, k2, coord in poi.items():
+            name = poi.info["label_name"][f"({k1}, {k2})"]
+            of = 0 if name in ["FNC", "FHC"] else 100
+            poi_final[k1 + offset, k2 + of] = coord
+            poi_final.info["label_name"][f"({k1}, {k2})"] = name + "-veerman"
+
     poi_final.save(out_poi_final)
     poi_final.save_mrk(out_poi_final)
 
@@ -574,37 +614,54 @@ def run_all(
     out_seg.save(out_atlas_final)
 
 
+gpu = 2
 if __name__ == "__main__":
-    ds = Path("/media/data/robert/dataset-myelom/dataset-myelom/")
-    x = ds / "derivatives-final/sub-CTFU00066/ses-02970"
-
-    img = BIDS_FILE(x / "sub-CTFU00066_ses-02970_sequ-3_ct.nii.gz", ds)
-
-    run_all(
-        img,
-        x / "sub-CTFU00066_ses-02970_sequ-3_mod-ct_seg-VIBESeg-12_msk.nii.gz",
-        x / "sub-CTFU00066_ses-02970_sequ-3_mod-ct_seg-vert_msk.nii.gz",
-        override=True,
-    )
-    exit()
-    bgi = Buffered_BIDS_Global_info("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom/", ["rawdata"])
-    # Create job list
+    # ds = Path("/media/data/robert/dataset-myelom/dataset-myelom/")
+    # ds = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom")
+    #
+    # x = ds / "derivatives-final/sub-CTFU00066/ses-02970"
+    #
+    # img = BIDS_FILE(x / "sub-CTFU00066_ses-02970_sequ-3_ct.nii.gz", ds)
+    #
+    # run_all(
+    #    img,
+    #    x / "sub-CTFU00066_ses-02970_sequ-3_mod-ct_seg-VIBESeg-12_msk.nii.gz",
+    #    x / "sub-CTFU00066_ses-02970_sequ-3_mod-ct_seg-vert_msk.nii.gz",
+    #    # override=True,
+    # )
+    bgi = Buffered_BIDS_Global_info("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom/", ["derivatives-final"])
+    ## Create job list
     all_files = []
     for sub, subj in bgi.enumerate_subjects(shuffle=False, sort=True):
         q = subj.new_query()
-        q.flatten()
+        # q.flatten()
         q.filter_filetype("nii.gz")
         q.filter_format("ct")
-        l = list(q.loop_list())
-        all_files.extend(sorted(l))
-
+        q.filter("seg", "spine")
+        q.filter("seg", "vert")
+        q.filter("seg", "VIBESeg-12")
+        # q.filter("sub", ["CTFU00354"])  #
+        # q.filter("ses", ["03470"])  #
+        for fam in q.loop_dict():
+            ct = fam["ct"][0]
+            vert: BIDS_FILE = fam["msk_seg-vert"][0]
+            vibe_seg = fam["msk_seg-VIBESeg-12"][0]
+            if not vert.exists():
+                continue
+            if not vibe_seg.exists():
+                continue
+            all_files.append([ct, vibe_seg, vert])
+    #
     import random
 
+    #
     # random.seed(42)
     random.shuffle(all_files)
     # all_files = all_files[:10]
-    for f in all_files:
+    for e, f in enumerate(all_files, 1):
+        print(f"{e:3}/{len(all_files):3}                   ")
         try:
-            run_all(f, override=True)
+            run_all(*f)
         except Exception as e:
             print("FAIL", e)
+            raise

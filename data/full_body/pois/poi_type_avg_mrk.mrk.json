@@ -1,0 +1,1225 @@
+{
+  "@schema": "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.3.json#",
+  "markups": [
+    {
+      "type": "Fiducial",
+      "coordinateSystem": "RAS",
+      "coordinateUnits": "mm",
+      "locked": true,
+      "fixedNumberOfControlPoints": false,
+      "labelFormat": "%N-%d",
+      "lastUsedControlPointNumber": 0,
+      "controlPoints": [
+        {
+          "id": "13-8",
+          "label": "TROCHLEAR_RIDGE_MEDIAL_POINT",
+          "description": "8",
+          "associatedNodeID": "13",
+          "position": [
+            -59.1525251,
+            -155.798341,
+            -1125.5154778
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-9",
+          "label": "TROCHLEAR_RIDGE_LATERAL_POINT",
+          "description": "9",
+          "associatedNodeID": "13",
+          "position": [
+            -92.1393471,
+            -150.1563241,
+            -1121.8905752
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-10",
+          "label": "TROCHLEA_GROOVE_CENTRAL_POINT",
+          "description": "10",
+          "associatedNodeID": "13",
+          "position": [
+            -71.7217064,
+            -155.5781293,
+            -1124.1494622
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-11",
+          "label": "PELVIS_CENTER",
+          "description": "11",
+          "associatedNodeID": "13",
+          "position": [
+            -86.2687473,
+            -157.5850387,
+            -717.5282894
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-12",
+          "label": "NECK_CENTER",
+          "description": "12",
+          "associatedNodeID": "13",
+          "position": [
+            -100.4834823,
+            -160.7929124,
+            -735.1192087
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-13",
+          "label": "TIP_OF_GREATER_TROCHANTER",
+          "description": "13",
+          "associatedNodeID": "13",
+          "position": [
+            -126.1236392,
+            -178.1910766,
+            -709.4161548
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-14",
+          "label": "LATERAL_CONDYLE_POSTERIOR",
+          "description": "14",
+          "associatedNodeID": "13",
+          "position": [
+            -49.8582466,
+            -215.8574855,
+            -1119.6276358
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-15",
+          "label": "LATERAL_CONDYLE_POSTERIOR_CRANIAL",
+          "description": "15",
+          "associatedNodeID": "13",
+          "position": [
+            -50.1477608,
+            -205.8083455,
+            -1104.3988748
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-16",
+          "label": "LATERAL_CONDYLE_DISTAL",
+          "description": "16",
+          "associatedNodeID": "13",
+          "position": [
+            -49.4480965,
+            -189.1578071,
+            -1141.5272955
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-17",
+          "label": "MEDIAL_CONDYLE_DISTAL",
+          "description": "17",
+          "associatedNodeID": "13",
+          "position": [
+            -97.6625348,
+            -192.9665293,
+            -1140.3374516
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-18",
+          "label": "NOTCH_POINT",
+          "description": "18",
+          "associatedNodeID": "13",
+          "position": [
+            -74.2161524,
+            -174.5701596,
+            -1135.8604006
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-19",
+          "label": "ANATOMICAL_AXIS_PROXIMAL",
+          "description": "19",
+          "associatedNodeID": "13",
+          "position": [
+            -116.3258785,
+            -166.3941213,
+            -795.7260246
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-20",
+          "label": "ANATOMICAL_AXIS_DISTAL",
+          "description": "20",
+          "associatedNodeID": "13",
+          "position": [
+            -82.1780243,
+            -160.8891894,
+            -1030.8703781
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-21",
+          "label": "MEDIAL_CONDYLE_POSTERIOR",
+          "description": "21",
+          "associatedNodeID": "13",
+          "position": [
+            -94.4723124,
+            -207.631075,
+            -1117.4318836
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "13-22",
+          "label": "MEDIAL_CONDYLE_POSTERIOR_CRANIAL",
+          "description": "22",
+          "associatedNodeID": "13",
+          "position": [
+            -93.0299174,
+            -198.0160414,
+            -1104.2640115
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        }
+      ],
+      "name": "P13_",
+      "display": {
+        "visibility": true,
+        "opacity": 1.0,
+        "color": [
+          0.4,
+          1.0,
+          1.0
+        ],
+        "selectedColor": [
+          0.12941176470588237,
+          0.7764705882352941,
+          0.2196078431372549
+        ],
+        "activeColor": [
+          0.4,
+          1.0,
+          0.0
+        ],
+        "propertiesLabelVisibility": false,
+        "pointLabelsVisibility": false,
+        "textScale": 3.0,
+        "glyphType": "Sphere3D",
+        "glyphScale": 5.0,
+        "glyphSize": 5.0,
+        "useGlyphScale": true,
+        "sliceProjection": false,
+        "sliceProjectionUseFiducialColor": true,
+        "sliceProjectionOutlinedBehindSlicePlane": false,
+        "sliceProjectionColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "sliceProjectionOpacity": 0.6,
+        "lineThickness": 0.2,
+        "lineColorFadingStart": 1.0,
+        "lineColorFadingEnd": 10.0,
+        "lineColorFadingSaturation": 1.0,
+        "lineColorFadingHueOffset": 0.0,
+        "handlesInteractive": false,
+        "translationHandleVisibility": false,
+        "rotationHandleVisibility": false,
+        "scaleHandleVisibility": false,
+        "interactionHandleScale": 3.0,
+        "snapMode": "toVisibleSurface"
+      }
+    },
+    {
+      "type": "Fiducial",
+      "coordinateSystem": "RAS",
+      "coordinateUnits": "mm",
+      "locked": true,
+      "fixedNumberOfControlPoints": false,
+      "labelFormat": "%N-%d",
+      "lastUsedControlPointNumber": 0,
+      "controlPoints": [
+        {
+          "id": "14-1",
+          "label": "PATELLA_PROXIMAL_POLE",
+          "description": "1",
+          "associatedNodeID": "14",
+          "position": [
+            -77.8694059,
+            -143.2738772,
+            -1085.8077358
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "14-2",
+          "label": "PATELLA_DISTAL_POLE",
+          "description": "2",
+          "associatedNodeID": "14",
+          "position": [
+            -77.6859525,
+            -139.5923616,
+            -1121.730712
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "14-3",
+          "label": "PATELLA_MEDIAL_POLE",
+          "description": "3",
+          "associatedNodeID": "14",
+          "position": [
+            -59.9755203,
+            -135.9745481,
+            -1104.3514626
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "14-4",
+          "label": "PATELLA_LATERAL_POLE",
+          "description": "4",
+          "associatedNodeID": "14",
+          "position": [
+            -99.1786116,
+            -144.8758183,
+            -1104.5392556
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "14-5",
+          "label": "PATELLA_RIDGE_PROXIMAL_POLE",
+          "description": "5",
+          "associatedNodeID": "14",
+          "position": [
+            -72.5428399,
+            -145.3203252,
+            -1091.4199676
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "14-6",
+          "label": "PATELLA_RIDGE_DISTAL_POLE",
+          "description": "6",
+          "associatedNodeID": "14",
+          "position": [
+            -74.9358607,
+            -147.877085,
+            -1115.7289538
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "14-7",
+          "label": "PATELLA_RIDGE_HIGH_POINT",
+          "description": "7",
+          "associatedNodeID": "14",
+          "position": [
+            -73.844665,
+            -148.3004157,
+            -1109.6482892
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        }
+      ],
+      "name": "P14_",
+      "display": {
+        "visibility": true,
+        "opacity": 1.0,
+        "color": [
+          0.4,
+          1.0,
+          1.0
+        ],
+        "selectedColor": [
+          0.7803921568627451,
+          0.6588235294117647,
+          0.796078431372549
+        ],
+        "activeColor": [
+          0.4,
+          1.0,
+          0.0
+        ],
+        "propertiesLabelVisibility": false,
+        "pointLabelsVisibility": false,
+        "textScale": 3.0,
+        "glyphType": "Sphere3D",
+        "glyphScale": 5.0,
+        "glyphSize": 5.0,
+        "useGlyphScale": true,
+        "sliceProjection": false,
+        "sliceProjectionUseFiducialColor": true,
+        "sliceProjectionOutlinedBehindSlicePlane": false,
+        "sliceProjectionColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "sliceProjectionOpacity": 0.6,
+        "lineThickness": 0.2,
+        "lineColorFadingStart": 1.0,
+        "lineColorFadingEnd": 10.0,
+        "lineColorFadingSaturation": 1.0,
+        "lineColorFadingHueOffset": 0.0,
+        "handlesInteractive": false,
+        "translationHandleVisibility": false,
+        "rotationHandleVisibility": false,
+        "scaleHandleVisibility": false,
+        "interactionHandleScale": 3.0,
+        "snapMode": "toVisibleSurface"
+      }
+    },
+    {
+      "type": "Fiducial",
+      "coordinateSystem": "RAS",
+      "coordinateUnits": "mm",
+      "locked": true,
+      "fixedNumberOfControlPoints": false,
+      "labelFormat": "%N-%d",
+      "lastUsedControlPointNumber": 0,
+      "controlPoints": [
+        {
+          "id": "15-14",
+          "label": "LATERAL_CONDYLE_POSTERIOR",
+          "description": "14",
+          "associatedNodeID": "15",
+          "position": [
+            -92.1520303,
+            -207.5857992,
+            -1146.6091318
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-19",
+          "label": "ANATOMICAL_AXIS_PROXIMAL",
+          "description": "19",
+          "associatedNodeID": "15",
+          "position": [
+            -71.8344751,
+            -177.6926634,
+            -1222.2508366
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-20",
+          "label": "ANATOMICAL_AXIS_DISTAL",
+          "description": "20",
+          "associatedNodeID": "15",
+          "position": [
+            -59.7304885,
+            -189.0227729,
+            -1439.7833724
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-21",
+          "label": "MEDIAL_CONDYLE_POSTERIOR",
+          "description": "21",
+          "associatedNodeID": "15",
+          "position": [
+            -54.398524,
+            -207.2141317,
+            -1144.8636728
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-23",
+          "label": "KNEE_CENTER",
+          "description": "23",
+          "associatedNodeID": "15",
+          "position": [
+            -72.5614221,
+            -189.0261909,
+            -1139.1606451
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-24",
+          "label": "MEDIAL_INTERCONDYLAR_TUBERCLE",
+          "description": "24",
+          "associatedNodeID": "15",
+          "position": [
+            -67.1605855,
+            -188.1688117,
+            -1134.9623537
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-25",
+          "label": "LATERAL_INTERCONDYLAR_TUBERCLE",
+          "description": "25",
+          "associatedNodeID": "15",
+          "position": [
+            -77.9801175,
+            -190.8152963,
+            -1137.0528812
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-26",
+          "label": "MEDIAL_CONDYLE_ANTERIOR",
+          "description": "26",
+          "associatedNodeID": "15",
+          "position": [
+            -56.9722241,
+            -169.1134575,
+            -1140.0293951
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-27",
+          "label": "LATERAL_CONDYLE_ANTERIOR",
+          "description": "27",
+          "associatedNodeID": "15",
+          "position": [
+            -94.315568,
+            -173.6758235,
+            -1145.2803232
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-28",
+          "label": "MEDIAL_CONDYLE_MEDIAL",
+          "description": "28",
+          "associatedNodeID": "15",
+          "position": [
+            -41.7441743,
+            -189.3617134,
+            -1144.9717293
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-29",
+          "label": "LATERAL_CONDYLE_LATERAL",
+          "description": "29",
+          "associatedNodeID": "15",
+          "position": [
+            -104.5404772,
+            -192.3815805,
+            -1144.9532236
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-30",
+          "label": "ANKLE_CENTER",
+          "description": "30",
+          "associatedNodeID": "15",
+          "position": [
+            -56.0792218,
+            -196.7666028,
+            -1502.9837678
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-31",
+          "label": "MEDIAL_MALLEOLUS",
+          "description": "31",
+          "associatedNodeID": "15",
+          "position": [
+            -31.8170282,
+            -178.215625,
+            -1507.662186
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-98",
+          "label": "TTP",
+          "description": "98",
+          "associatedNodeID": "15",
+          "position": [
+            -80.578128,
+            -158.7484908,
+            -1175.4542023
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "15-99",
+          "label": "TGPP",
+          "description": "99",
+          "associatedNodeID": "15",
+          "position": [
+            -72.2828576,
+            -152.9612377,
+            -1115.9728502
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        }
+      ],
+      "name": "P15_",
+      "display": {
+        "visibility": true,
+        "opacity": 1.0,
+        "color": [
+          0.4,
+          1.0,
+          1.0
+        ],
+        "selectedColor": [
+          0.4196078431372549,
+          0.2235294117647059,
+          0.403921568627451
+        ],
+        "activeColor": [
+          0.4,
+          1.0,
+          0.0
+        ],
+        "propertiesLabelVisibility": false,
+        "pointLabelsVisibility": false,
+        "textScale": 3.0,
+        "glyphType": "Sphere3D",
+        "glyphScale": 5.0,
+        "glyphSize": 5.0,
+        "useGlyphScale": true,
+        "sliceProjection": false,
+        "sliceProjectionUseFiducialColor": true,
+        "sliceProjectionOutlinedBehindSlicePlane": false,
+        "sliceProjectionColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "sliceProjectionOpacity": 0.6,
+        "lineThickness": 0.2,
+        "lineColorFadingStart": 1.0,
+        "lineColorFadingEnd": 10.0,
+        "lineColorFadingSaturation": 1.0,
+        "lineColorFadingHueOffset": 0.0,
+        "handlesInteractive": false,
+        "translationHandleVisibility": false,
+        "rotationHandleVisibility": false,
+        "scaleHandleVisibility": false,
+        "interactionHandleScale": 3.0,
+        "snapMode": "toVisibleSurface"
+      }
+    },
+    {
+      "type": "Fiducial",
+      "coordinateSystem": "RAS",
+      "coordinateUnits": "mm",
+      "locked": true,
+      "fixedNumberOfControlPoints": false,
+      "labelFormat": "%N-%d",
+      "lastUsedControlPointNumber": 0,
+      "controlPoints": [
+        {
+          "id": "16-32",
+          "label": "LATERAL_MALLEOLUS",
+          "description": "32",
+          "associatedNodeID": "16",
+          "position": [
+            -81.9512543,
+            -219.1921477,
+            -1515.9263468
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        }
+      ],
+      "name": "P16_",
+      "display": {
+        "visibility": true,
+        "opacity": 1.0,
+        "color": [
+          0.4,
+          1.0,
+          1.0
+        ],
+        "selectedColor": [
+          0.3215686274509804,
+          0.7843137254901961,
+          0.47058823529411764
+        ],
+        "activeColor": [
+          0.4,
+          1.0,
+          0.0
+        ],
+        "propertiesLabelVisibility": false,
+        "pointLabelsVisibility": false,
+        "textScale": 3.0,
+        "glyphType": "Sphere3D",
+        "glyphScale": 5.0,
+        "glyphSize": 5.0,
+        "useGlyphScale": true,
+        "sliceProjection": false,
+        "sliceProjectionUseFiducialColor": true,
+        "sliceProjectionOutlinedBehindSlicePlane": false,
+        "sliceProjectionColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "sliceProjectionOpacity": 0.6,
+        "lineThickness": 0.2,
+        "lineColorFadingStart": 1.0,
+        "lineColorFadingEnd": 10.0,
+        "lineColorFadingSaturation": 1.0,
+        "lineColorFadingHueOffset": 0.0,
+        "handlesInteractive": false,
+        "translationHandleVisibility": false,
+        "rotationHandleVisibility": false,
+        "scaleHandleVisibility": false,
+        "interactionHandleScale": 3.0,
+        "snapMode": "toVisibleSurface"
+      }
+    }
+  ]
+}

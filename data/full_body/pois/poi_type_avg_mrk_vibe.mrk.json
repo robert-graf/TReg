@@ -1,0 +1,167 @@
+{
+  "@schema": "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.3.json#",
+  "markups": [
+    {
+      "type": "Fiducial",
+      "coordinateSystem": "LPS",
+      "coordinateUnits": "mm",
+      "locked": false,
+      "fixedNumberOfControlPoints": false,
+      "labelFormat": "%N-%d",
+      "lastUsedControlPointNumber": 0,
+      "controlPoints": [
+        {
+          "id": "113-11",
+          "label": "PELVIS_CENTER",
+          "description": "11",
+          "associatedNodeID": "13",
+          "position": [
+            86.2687473,
+            157.5850387,
+            -717.5282894
+          ],
+          "orientation": [
+            -1.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0,
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "113-12",
+          "label": "NECK_CENTER",
+          "description": "12",
+          "associatedNodeID": "13",
+          "position": [
+            100.4834823,
+            160.7929124,
+            -735.1192087
+          ],
+          "orientation": [
+            -1.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0,
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "113-13",
+          "label": "TIP_OF_GREATER_TROCHANTER",
+          "description": "13",
+          "associatedNodeID": "13",
+          "position": [
+            126.1236392,
+            178.1910766,
+            -709.4161548
+          ],
+          "orientation": [
+            -1.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0,
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        },
+        {
+          "id": "113-19",
+          "label": "ANATOMICAL_AXIS_PROXIMAL",
+          "description": "19",
+          "associatedNodeID": "13",
+          "position": [
+            116.3258785,
+            166.3941213,
+            -795.7260246
+          ],
+          "orientation": [
+            -1.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            -1.0,
+            -0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "selected": true,
+          "locked": false,
+          "visibility": true,
+          "positionStatus": "defined"
+        }
+      ],
+      "measurements": [],
+      "display": {
+        "visibility": true,
+        "opacity": 1.0,
+        "color": [
+          0.4,
+          1.0,
+          1.0
+        ],
+        "selectedColor": [
+          0.12941176470588237,
+          0.7764705882352941,
+          0.2196078431372549
+        ],
+        "activeColor": [
+          0.4,
+          1.0,
+          0.0
+        ],
+        "propertiesLabelVisibility": false,
+        "pointLabelsVisibility": false,
+        "textScale": 3.0,
+        "glyphType": "Sphere3D",
+        "glyphScale": 5.0,
+        "glyphSize": 5.0,
+        "useGlyphScale": true,
+        "sliceProjection": false,
+        "sliceProjectionUseFiducialColor": true,
+        "sliceProjectionOutlinedBehindSlicePlane": false,
+        "sliceProjectionColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "sliceProjectionOpacity": 0.6,
+        "lineThickness": 0.2,
+        "lineColorFadingStart": 1.0,
+        "lineColorFadingEnd": 10.0,
+        "lineColorFadingSaturation": 1.0,
+        "lineColorFadingHueOffset": 0.0,
+        "handlesInteractive": false,
+        "translationHandleVisibility": false,
+        "rotationHandleVisibility": false,
+        "scaleHandleVisibility": false,
+        "interactionHandleScale": 3.0,
+        "snapMode": "toVisibleSurface"
+      }
+    }
+  ]
+}
