@@ -12,7 +12,10 @@ logger = Print_Logger(prefix="subreg_2_poi")
 
 
 def get_stl(nii: NII, idx):
-    stl = nii.to_stl(idx)
+    try:
+        stl = nii.to_stl(idx)
+    except RuntimeError:
+        return None
     wrapper = MeshWrapper(str(idx), stl_to_trimesh(stl))
     return wrapper
 
@@ -21,6 +24,8 @@ def get_sphere_center(nii: NII, idx, idx_poi: tuple[int, int] | None = None, out
     if idx_poi is None:
         idx_poi = (0, idx)
     mesh = get_stl(nii, idx)
+    if mesh is None:
+        return out_poi
     sph = mesh.fit_sphere()
     if out_poi is not None:
         out_poi[idx_poi] = sph["center"]
@@ -49,6 +54,8 @@ def get_centroid(
         neck_centroid = out_poi[idx_poi]
     else:
         mesh = get_stl(nii, idx)
+        if mesh is None:
+            return out_poi
         neck_centroid = mesh.area_weighted_centroid()
         if out_poi is not None:
             out_poi[idx_poi] = neck_centroid

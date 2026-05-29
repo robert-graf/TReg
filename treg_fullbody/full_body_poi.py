@@ -57,7 +57,7 @@ class Task:
     mapping_target: dict | None = None
     gt_rib: Path = atlas_templates_folder / "sub-CTFU04045_ses-02480_sequ-204_mod-ct_seg-vert_msk.nii.gz"
     gt_12: Path = atlas_templates_folder / "sub-CTFU04045_ses-02480_sequ-204_mod-ct_seg-VIBESeg-12_msk.nii.gz"
-    weights: dict = field(default_factory=lambda: {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": 0.001})
+    weights: dict = field(default_factory=lambda: {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [1, 0.1, 0.001, 0]})
 
 
 def get_tasks_ct():
@@ -140,7 +140,7 @@ def get_tasks_ct():
             [FB.rib_left],
             [atlas_poi_folder / "ribcage_l.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
-            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": 0.001},
+            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
             others={"rib": atlas_templates_folder / "rib_left.nii.gz"},
         ),
         Task(
@@ -148,7 +148,7 @@ def get_tasks_ct():
             [FB.rib_right],
             [atlas_poi_folder / "ribcage_r.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
-            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": 0.001},
+            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
             others={"rib": atlas_templates_folder / "rib_right.nii.gz"},
         ),
         Task(
@@ -272,7 +272,7 @@ def extract_label_for_task(
 
     selected = selected.reorient()
     selected.set_dtype_("smallest_uint")
-    selected.apply_crop_(selected.compute_crop(0, crop))
+    selected.apply_crop_(selected.compute_crop(0, crop, raise_error=False))
     return selected
 
 
@@ -381,8 +381,11 @@ def post_reg(
     mask_nii: NII | None = None,
 ):
     out_poi_final, out_atlas_final = _path(img, parent, task)
-    logger.print("make atlas_reg", nii_atlas_fov)
-    # atlas_reg = reg.transform_nii(nii_atlas_fov).set_dtype("smallest_uint")  # Transfering the atlas
+    # logger.print("make atlas_reg", nii_atlas_fov)
+    # atlas_reg = reg.transform_nii(nii_atlas_fov).set_dtype("smallest_uint")  # Transferring the atlas
+    # if data_target.clamp(0, 1) * atlas_reg.sum() == 0:
+    #    logger.on_fail("output empty. Saved nothing")
+    #    return
     # atlas_reg.save(out_atlas_final)
     atlas_reg2 = None
     for k, v in others.items():
@@ -476,8 +479,15 @@ def reg(task: Task, img: BIDS_FILE, seg_vibe12: Image_Reference, ribs: Image_Ref
 
     ### Segs ###
     data_target = extract_label_for_task(task, seg_vibe12, ribs, is_target=True, crop=10)
-
+    if data_target.max() == 0:
+        return _path(img, parent, task)
     poi_atlas, nii_atlas_fov, poi_atlas_cms, others = get_atlas_poi(task, rib_pois=rib_pois)
+
+    u = data_target.unique()
+    if len(u) == 0:
+        logger.on_warning("No Segmentation in target")
+        return _path(img, parent, task)
+    nii_atlas_fov = nii_atlas_fov.extract_label(u, True)
     ##################
     logger.on_log(f"Running task: {task!s};\n{data_target.shape=}; {nii_atlas_fov.shape=}")
     reg = Template_Registration(
@@ -604,7 +614,7 @@ def run_all(
     out_seg.save(out_atlas_final)
 
 
-gpu = 1
+gpu = 2
 if __name__ == "__main__":
     # ds = Path("/media/data/robert/dataset-myelom/dataset-myelom/")
     # ds = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom")
@@ -630,14 +640,16 @@ if __name__ == "__main__":
         q.filter("seg", "spine")
         q.filter("seg", "vert")
         q.filter("seg", "VIBESeg-12")
-        # q.filter(
-        #    "sub",
-        #    ["MM00244", "MM00014"],
-        # )  #
+        # q.filter("sub", ["CTFU00354"])  #
+        # q.filter("ses", ["03470"])  #
         for fam in q.loop_dict():
             ct = fam["ct"][0]
-            vert = fam["msk_seg-vert"][0]
+            vert: BIDS_FILE = fam["msk_seg-vert"][0]
             vibe_seg = fam["msk_seg-VIBESeg-12"][0]
+            if not vert.exists():
+                continue
+            if not vibe_seg.exists():
+                continue
             all_files.append([ct, vibe_seg, vert])
     #
     import random
@@ -646,8 +658,8 @@ if __name__ == "__main__":
     # random.seed(42)
     random.shuffle(all_files)
     # all_files = all_files[:10]
-    print(all_files)
-    for f in all_files:
+    for e, f in enumerate(all_files, 1):
+        print(f"{e:3}/{len(all_files):3}                   ")
         try:
             run_all(*f)
         except Exception as e:
