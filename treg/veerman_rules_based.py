@@ -175,8 +175,11 @@ def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, sid
     nii = to_nii(nii, True)
     loaded = []
     for stem in ID_TO_MESH_NAME.values():
-        results["meshes"][stem] = get_stl(nii, stem, stl_folder, side)
-        loaded.append(stem)
+        try:
+            results["meshes"][stem] = get_stl(nii, stem, stl_folder, side)
+            loaded.append(stem)
+        except IndexError as e:
+            logger.on_fail(e)
     if len(loaded) != len(EXPECTED_MESHES):
         missing = set(EXPECTED_MESHES) - set(loaded)
         raise AnalysisError(f"Missing meshes: {missing}")
