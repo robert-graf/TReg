@@ -9,6 +9,8 @@ from TPTBox import BIDS_FILE, NII, POI, Image_Reference, No_Logger, POI_Global, 
 from TPTBox.core.bids_files import Buffered_BIDS_Global_info
 from TPTBox.core.vert_constants import Full_Body_Instance, Full_Body_Instance_Vibe, Vertebra_Instance
 
+from treg.mesh_analysis import AnalysisError
+
 sys.path.append(str(Path(__file__).parent.parent))
 from TPTBox.registration._deformable.multilabel_segmentation import Template_Registration
 
@@ -402,7 +404,10 @@ def post_reg(
             from treg.veerman_rules_based import run_single_case
 
             l = "R" if "right" in out.name else "L"
-            run_single_case(atlas_reg2, out.parent / f"stl_{l}", l)
+            try:
+                run_single_case(atlas_reg2, out.parent / f"stl_{l}", l)
+            except AnalysisError:
+                logger.print_error()
         elif "sacrum" in k:
             atlas_reg2 = atlas_reg2.infect_(data_target.extract_label(Full_Body_Instance.sacrum), verbose=False)
         else:
@@ -614,7 +619,7 @@ def run_all(
     out_seg.save(out_atlas_final)
 
 
-gpu = 2
+gpu = 0
 if __name__ == "__main__":
     # ds = Path("/media/data/robert/dataset-myelom/dataset-myelom/")
     # ds = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom")
