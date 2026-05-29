@@ -10,11 +10,10 @@ from TPTBox import BIDS_FILE, NII, POI, BIDS_Global_info, Image_Reference, No_Lo
 from TPTBox.core.bids_files import Buffered_BIDS_Global_info
 from TPTBox.core.vert_constants import Full_Body_Instance, Full_Body_Instance_Vibe, Vertebra_Instance
 
-from treg.mesh_analysis import AnalysisError
-
 sys.path.append(str(Path(__file__).parent.parent))
 from TPTBox.registration._deformable.multilabel_segmentation import Template_Registration
 
+from treg.mesh_analysis import AnalysisError
 from treg_fullbody.poi_dict import pois_full as poi_naming_schema
 from treg_fullbody.subreg_2_poi import get_centroid, get_sphere_center
 
