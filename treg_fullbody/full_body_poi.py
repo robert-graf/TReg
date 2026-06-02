@@ -617,7 +617,6 @@ def run_all(
         # for i in
     if feet_only or fail:
         return
-    return
     poi_veerman_left = out_poi_final.parent / "stl_L" / "poi.json"
     poi_veerman_right = out_poi_final.parent / "stl_R" / "poi.json"
 
