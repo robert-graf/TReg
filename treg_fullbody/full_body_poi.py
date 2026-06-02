@@ -489,7 +489,7 @@ def reg(task: Task, img: BIDS_FILE, seg_vibe12: Image_Reference, ribs: Image_Ref
     poi_atlas, nii_atlas_fov, poi_atlas_cms, others = get_atlas_poi(task, rib_pois=rib_pois)
 
     u = data_target.unique()
-    if len(u) == 0:
+    if len(u) <= 1:
         logger.on_warning("No Segmentation in target")
         return _path(img, parent, task)
     nii_atlas_fov = nii_atlas_fov.extract_label(u, True)
@@ -544,6 +544,9 @@ def get_rib_info(img_file: BIDS_FILE, rib_instance: Path, parent, compute_rib_sp
             return None
 
 
+feet_only = True
+
+
 def run_all(
     img_file: BIDS_FILE,
     VIBESeg_12: Path,
@@ -570,34 +573,51 @@ def run_all(
         return
     logger.on_log(VIBESeg_12)
     poi_final = POI_Global(itk_coords=True)
-    rib_pois = get_rib_info(img_file, rib_instance, parent="derivatives-treg", compute_rib_special_cases=compute_rib_special_cases)
+    rib_pois = None
+    if not feet_only:
+        try:
+            rib_pois = get_rib_info(img_file, rib_instance, parent="derivatives-treg", compute_rib_special_cases=compute_rib_special_cases)
+        except AssertionError as e:
+            logger.on_fail(e)
+    # return
     if rib_pois is not None:
         poi_final.join_left_(rib_pois)
+    fail = False
     for task in tasks:
-        poi_file, _ = reg(task, img_file, VIBESeg_12, rib_instance, parent=parent, rib_pois=rib_pois)
-        if not poi_file.exists():
-            continue
-        poi = POI_Global.load(poi_file, itk_coords=True)
-        if task.task_id in ["leg_left", "leg_right"]:
-            from TPTBox.core.vert_constants import _ABBREVIATION_TO_ENUM
+        try:
+            if feet_only and "feet" not in str(task.task_id):  # TODO Remove
+                continue
+            poi_file, _ = reg(task, img_file, VIBESeg_12, rib_instance, parent=parent, rib_pois=rib_pois)
+            if not poi_file.exists():
+                continue
+            poi = POI_Global.load(poi_file, itk_coords=True)
+            if task.task_id in ["leg_left", "leg_right"]:
+                from TPTBox.core.vert_constants import _ABBREVIATION_TO_ENUM
 
-            def mk_tuple(v):
-                v = str(v).replace("(", "").replace(")", "").replace(" ", "").split(",")
-                return int(v[0]), int(v[1])
+                def mk_tuple(v):
+                    v = str(v).replace("(", "").replace(")", "").replace(" ", "").split(",")
+                    return int(v[0]), int(v[1])
 
-            m = {
-                mk_tuple(v): (
-                    _ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id == "leg_right" else 100),
-                    _ABBREVIATION_TO_ENUM[k][1].value,
-                )
-                for v, k in poi.info["label_name"].items()
-            }
-            poi.map_labels_(label_map_full=m)
+                m = {
+                    mk_tuple(v): (
+                        _ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id == "leg_right" else 100),
+                        _ABBREVIATION_TO_ENUM[k][1].value,
+                    )
+                    for v, k in poi.info["label_name"].items()
+                }
+                poi.map_labels_(label_map_full=m)
+            # return  # TODO Remove
+            assert len([a for a in poi.keys() if a in poi_final]) == 0, [a for a in poi.keys() if a in poi_final]
+            poi_final.join_left_(poi)
+
+        except Exception:
+            logger.print_error()
+            fail = True
         #     continue
-        assert len([a for a in poi.keys() if a in poi_final]) == 0, [a for a in poi.keys() if a in poi_final]
-        poi_final.join_left_(poi)
         # for i in
-
+    if feet_only or fail:
+        return
+    return
     poi_veerman_left = out_poi_final.parent / "stl_L" / "poi.json"
     poi_veerman_right = out_poi_final.parent / "stl_R" / "poi.json"
 

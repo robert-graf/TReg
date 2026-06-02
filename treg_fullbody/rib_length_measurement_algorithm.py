@@ -604,7 +604,11 @@ def measure_ribs_length_subject(
             sem_vr = sem_seg.extract_label([sem_rib_label, 41, 42, 43, 44, 45, 46, 47, 48, 49], keep_label=True)
             sem_vr[vert_vr == 0] = 0
             # hand it over to one rib function handle
-            data_dict = _measure_one_rib_length(sem_vr, leftside=leftside, vert_id=vert)
+            try:
+                data_dict = _measure_one_rib_length(sem_vr, leftside=leftside, vert_id=vert)
+            except Exception as e:
+                logger.on_fail(e)
+                continue
             data_dict.last_v = is_last_v
             data_dict.vert_ori_rel_to_corpus = rel_to_corpus
             data_dict.PIR_angle_degrees = PIR_angle_degrees
