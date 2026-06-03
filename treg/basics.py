@@ -123,7 +123,7 @@ def run_all(
             side="L" if side.lower() == "left" else "R",
             output_csv=str(files[side]["target_out_angle2"]).split(".")[0] + ".csv",
         )
-        return reg
+    return reg  
 
 
 def treg_one_leg(
