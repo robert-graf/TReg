@@ -122,10 +122,13 @@ EXPECTED_MESHES = list(ID_TO_MESH_NAME.values())
 # =============================================================================
 
 
-def _check_required_keys(results, required, step_name):
-    missing = [k for k in required if k not in results]
-    if missing:
+def _check_required_keys(results, required, step_name, allow_partial=False):
+
+    missing = [k for k in required if results.get(k) is not None]
+    if missing and not allow_partial:
         raise AnalysisError(f"Missing required keys for {step_name}: {missing}.")
+    print(f"{missing=}", len(missing) != 0)
+    return len(missing) != 0
 
 
 # =============================================================================
@@ -162,7 +165,7 @@ def get_stl(nii: NII, stem="fem_head", stl_folder: Path | None = None, side: Lit
     return wrapper
 
 
-def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, side: Literal["R", "L"], verbose=True):
+def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, side: Literal["R", "L"], verbose=True, allow_partial=False):
     """Generate STL files from NII segmentation."""
     logger.info("=" * 60, verbose=verbose)
     logger.info("Load STLs", verbose=verbose)
@@ -180,12 +183,17 @@ def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, sid
             loaded.append(stem)
         except IndexError as e:
             logger.on_fail(e)
-    if len(loaded) != len(EXPECTED_MESHES):
+    if len(loaded) != len(EXPECTED_MESHES) and not allow_partial:
         missing = set(EXPECTED_MESHES) - set(loaded)
         raise AnalysisError(f"Missing meshes: {missing}")
     logger.info(f"\n{'Mesh':<30} {'Vertices':>10} {'Faces':>10} {'BBox X':>10} {'BBox Y':>10} {'BBox Z':>10}", verbose=verbose)
     logger.info("-" * 82, verbose=verbose)
     for stem in EXPECTED_MESHES:
+        if stem not in results["meshes"]:
+            if allow_partial:
+                continue
+            else:
+                raise KeyError(stem)
         wrapper = results["meshes"][stem]
         coords = wrapper.vertices
         n_verts = len(coords)
@@ -233,10 +241,15 @@ def get_FHC(
     warnings: list | None = None,
     verbose=True,
 ):
+
     if warnings is None:
         warnings = []
-    mesh = get_stl(nii, stem="fem_head", stl_folder=stl_folder, side=side)
-    sph = mesh.fit_sphere()
+    try:
+        mesh = get_stl(nii, stem="fem_head", stl_folder=stl_folder, side=side)
+
+        sph = mesh.fit_sphere()
+    except Exception:
+        return None
     if out_poi is not None:
         out_poi[POI_MAP["FHC"]] = sph["center"]
         out_poi.info["fem_head_radius"] = sph["radius"]
@@ -291,14 +304,16 @@ def _get_centroid(
     if out_poi is not None and POI_MAP[key] in out_poi:
         neck_centroid = out_poi[POI_MAP[key]]
     else:
-        if isinstance(stem, str):
-            mesh = get_stl(nii, stem=stem, stl_folder=stl_folder, side=side)
-        else:
-            mesh = MeshWrapper.concatenate([get_stl(nii, stem=s, stl_folder=stl_folder, side=side) for s in stem])
-        neck_centroid = mesh.area_weighted_centroid()
-        if out_poi is not None:
-            out_poi[POI_MAP[key]] = neck_centroid
-
+        try:
+            if isinstance(stem, str):
+                mesh = get_stl(nii, stem=stem, stl_folder=stl_folder, side=side)
+            else:
+                mesh = MeshWrapper.concatenate([get_stl(nii, stem=s, stl_folder=stl_folder, side=side) for s in stem])
+            neck_centroid = mesh.area_weighted_centroid()
+            if out_poi is not None:
+                out_poi[POI_MAP[key]] = neck_centroid
+        except IndexError:
+            return None
     logger.info(f"{name} centroid: ({neck_centroid[0]:.2f}, {neck_centroid[1]:.2f}, {neck_centroid[2]:.2f})", verbose=verbose)
     return np.array(neck_centroid)
 
@@ -535,6 +550,8 @@ def compute_points(
 
 
 def _comp_dir(poi, name1, name2, name="Anatomical cranial", verbose=True):
+    if POI_MAP[name2] not in poi or POI_MAP[name1] not in poi:
+        return None
     cranial_vec = np.array(poi[POI_MAP[name1]]) - np.array(poi[POI_MAP[name2]])
     cranial_dir = cranial_vec / norm(cranial_vec)
     logger.info(f"{name} direction: ({cranial_dir[0]:.4f}, {cranial_dir[1]:.4f}, {cranial_dir[2]:.4f})", verbose=verbose)
@@ -546,7 +563,7 @@ def _comp_dir(poi, name1, name2, name="Anatomical cranial", verbose=True):
 # =============================================================================
 
 
-def step_3(poi: POI_Global):
+def step_3(poi: POI_Global, allow_partial=False):
     """Construct femoral and tibial coordinate systems and mechanical axes."""
     logger.info("=" * 60)
     logger.info("STEP 3: Build Coordinate Systems")
@@ -565,8 +582,10 @@ def step_3(poi: POI_Global):
         "side",
         "cranial_dir",
     ]
-    _check_required_keys(poi.info, required, "step_3")
     results = poi.info
+    if _check_required_keys(results, required, "step_3", allow_partial=allow_partial):
+        return
+
     cranial_dir = results["cranial_dir"]
     fem_head = results["fem_head_center"]
     dist_fem = results["dist_fem_center"]
@@ -748,7 +767,7 @@ def fit_plane(points, orient_toward=None):
     return {"normal": normal, "centroid": centroid, "rmse": rmse}
 
 
-def step_4(poi: POI_Global):
+def step_4(poi: POI_Global, allow_partial=False):
     """Compute all Veerman Figure 7 alignment angles."""
     logger.info("=" * 60)
     logger.info("STEP 4: Compute Joint Orientations & Angles (Veerman Fig. 7)")
@@ -774,8 +793,8 @@ def step_4(poi: POI_Global):
         "cranial_dir",
     ]
     results = poi.info
-    _check_required_keys(results, required, "step_4")
-
+    if _check_required_keys(results, required, "step_4", allow_partial=allow_partial):
+        return
     fem_cs = results["fem_cs"]
     tib_cs = results["tib_cs"]
     # side = results["side"]
@@ -1320,7 +1339,7 @@ def color_from_idx(i, n=12):
     ]
 
 
-def run_single_case(nii, stl_folder: "Path | str", side: Literal["R", "L"], output_csv=None, verbose=True):
+def run_single_case(nii, stl_folder: "Path | str", side: Literal["R", "L"], output_csv=None, verbose=True, allow_partial=False):
     """Run the full pipeline for one case and return results dict."""
     stl_folder = Path(stl_folder)
 
@@ -1346,26 +1365,33 @@ def run_single_case(nii, stl_folder: "Path | str", side: Literal["R", "L"], outp
     poi.info["label_name"] = {f"({k1}, {k2})": v for v, (k1, k2) in POI_MAP.items()}
     poi.info["label_group_name"] = {"1": "Femur proximal", "2": "Femur distal", "3": "Tibia proximal", "4": "Tibia distal", "5": "Patella"}
     poi.info["warnings"] = []
-    load_save_stls(nii, poi.info, stl_folder, side, verbose=verbose)
+    load_save_stls(nii, poi.info, stl_folder, side, verbose=verbose, allow_partial=allow_partial)
     compute_points(nii, poi, stl_folder, side, poi.info["warnings"], verbose=verbose)
 
-    poi.info["fem_head_center"] = np.array(poi[POI_MAP["FHC"]])
-    poi.info["fem_neck_center"] = np.array(poi[POI_MAP["FNC"]])
-    poi.info["med_plateau_centroid"] = np.array(poi[POI_MAP["TMCM"]])
-    poi.info["lat_plateau_centroid"] = np.array(poi[POI_MAP["TLCL"]])
-    poi.info["prox_tib_center"] = np.array(poi[POI_MAP["TKC"]])
-    poi.info["ankle_med_centroid"] = np.array(poi[POI_MAP["TMM"]])
-    poi.info["ankle_lat_centroid"] = np.array(poi[POI_MAP["FLM"]])
-    poi.info["ankle_mid_centroid"] = np.array(poi[POI_MAP["TAC"]])
-    poi.info["ankle_center"] = np.array(poi[POI_MAP["ankle_center"]])
-    poi.info["cond_med_centroid"] = np.array(poi[POI_MAP["FMCD"]])
-    poi.info["cond_lat_centroid"] = np.array(poi[POI_MAP["FLCD"]])
+    def arr(key):
+        if POI_MAP[key] not in poi:
+            return None
+        return np.array(poi[POI_MAP[key]])
 
-    step_3(poi)
-    step_4(poi)
+    poi.info["fem_head_center"] = arr("FHC")
+    poi.info["fem_neck_center"] = arr("FNC")
+    poi.info["med_plateau_centroid"] = arr("TMCM")
+    poi.info["lat_plateau_centroid"] = arr("TLCL")
+    poi.info["prox_tib_center"] = arr("TKC")
+    poi.info["ankle_med_centroid"] = arr("TMM")
+    poi.info["ankle_lat_centroid"] = arr("FLM")
+    poi.info["ankle_mid_centroid"] = arr("TAC")
+    poi.info["ankle_center"] = arr("ankle_center")
+    poi.info["cond_med_centroid"] = arr("FMCD")
+    poi.info["cond_lat_centroid"] = arr("FLCD")
+
+    step_3(poi, allow_partial=allow_partial)
+    step_4(poi, allow_partial=allow_partial)
 
     if output_csv:
         step_5(poi, poi.info, output_path=output_csv)
+    if angle_lines and allow_partial:
+        angle_lines = None  # type: ignore
 
     # Convert POI to global before saving
     global_poi = poi
