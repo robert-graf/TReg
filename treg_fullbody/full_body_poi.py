@@ -14,6 +14,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from TPTBox.registration._deformable.multilabel_segmentation import Template_Registration
 
 from treg.mesh_analysis import AnalysisError
+from treg_fullbody.fix_rib_poi import fix_rib, is_rib_fixed
 from treg_fullbody.poi_dict import pois_full as poi_naming_schema
 from treg_fullbody.subreg_2_poi import get_centroid, get_sphere_center
 
@@ -84,24 +85,52 @@ def get_tasks_ct():
             mirror=True,
             mapping_target={x.value: FB[x.name.replace("_right", "_left")].value for x in [FB.clavicula_right, FB.scapula_right]},
         ),
+        # Task(
+        #    "leg-left",
+        #    [FB.femur_left, FB.patella_left, FB.tibia_left, FB.fibula_left],
+        #    [root_atlas.parent / "leg" / "sub-atlas_seg-poi_poi.json"],
+        #    others={
+        #        "veerman": root_atlas.parent / "leg" / "sub-atlas_seg-subregion_msk.nii.gz",
+        #        #"veerman-raw": root_atlas.parent / "leg" / "sub-atlas_seg-subregion_msk.nii.gz",
+        #    },
+        # ),
+        # Task(
+        #    "leg-right",
+        #    [FB.femur_right, FB.patella_right, FB.tibia_right, FB.fibula_right],
+        #    [root_atlas.parent / "leg" / "sub-atlas_seg-poi_poi.json"],
+        #    mirror=True,
+        #    others={"veerman": root_atlas.parent / "leg" / "sub-atlas_seg-subregion_msk.nii.gz"},
+        #    mapping_target={
+        #        Full_Body_Instance.femur_right.value: Full_Body_Instance.femur_left.value,
+        #        Full_Body_Instance.patella_right.value: Full_Body_Instance.patella_left.value,
+        #        Full_Body_Instance.tibia_right.value: Full_Body_Instance.tibia_left.value,
+        #        Full_Body_Instance.fibula_right.value: Full_Body_Instance.fibula_left.value,
+        #    },
+        # ),
         Task(
-            "leg_left",
+            "leg-left-2",
             [FB.femur_left, FB.patella_left, FB.tibia_left, FB.fibula_left],
-            [root_atlas.parent / "leg" / "sub-atlas_seg-poi_poi.json"],
-            others={"veerman": root_atlas.parent / "leg" / "sub-atlas_seg-subregion_msk.nii.gz"},
+            [root_atlas.parent / "leg2" / "sub-atlas_seg-poi_poi.json"],
+            others={
+                "veerman": root_atlas.parent / "leg2" / "sub-atlas_seg-subregion_msk.nii.gz",
+                # "veerman-raw": root_atlas.parent / "leg2" / "sub-atlas_seg-subregion_msk.nii.gz",
+            },
+            gt_12=root_atlas.parent / "leg2" / "sub-atlas_seg-VIBESeg-12_msk.nii.gz",
+            # weights={"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [0.01, 0.01, 0.001, 0]},
         ),
         Task(
-            "leg_right",
+            "leg-right-2",
             [FB.femur_right, FB.patella_right, FB.tibia_right, FB.fibula_right],
-            [root_atlas.parent / "leg" / "sub-atlas_seg-poi_poi.json"],
+            [root_atlas.parent / "leg2" / "sub-atlas_seg-poi_poi.json"],
             mirror=True,
-            others={"veerman": root_atlas.parent / "leg" / "sub-atlas_seg-subregion_msk.nii.gz"},
+            others={"veerman": root_atlas.parent / "leg2" / "sub-atlas_seg-subregion_msk.nii.gz"},
             mapping_target={
                 Full_Body_Instance.femur_right.value: Full_Body_Instance.femur_left.value,
                 Full_Body_Instance.patella_right.value: Full_Body_Instance.patella_left.value,
                 Full_Body_Instance.tibia_right.value: Full_Body_Instance.tibia_left.value,
                 Full_Body_Instance.fibula_right.value: Full_Body_Instance.fibula_left.value,
             },
+            gt_12=root_atlas.parent / "leg2" / "sub-atlas_seg-VIBESeg-12_msk.nii.gz",
         ),
         Task(
             "hip",
@@ -405,7 +434,7 @@ def post_reg(
 
             l = "R" if "right" in out.name else "L"
             try:
-                run_single_case(atlas_reg2, out.parent / f"stl_{l}", l)
+                run_single_case(atlas_reg2, out.parent / f"stl-{task.task_id}_{l}", l)
             except AnalysisError:
                 logger.print_error()
         elif "sacrum" in k:
@@ -508,6 +537,12 @@ def reg(task: Task, img: BIDS_FILE, seg_vibe12: Image_Reference, ribs: Image_Ref
     nii_atlas_fov = nii_atlas_fov.extract_label(u, True)
     ##################
     logger.on_log(f"Running task: {task!s};\n{data_target.shape=}; {nii_atlas_fov.shape=}")
+    # logger.on_debug(f"{u}; {nii_atlas_fov.unique()=}")
+    # logger.on_debug(f"{data_target.seg=}; {nii_atlas_fov.seg=}")
+    # nii_atlas_fov.save("/DATA/NAS/ongoing_projects/robert/code/TReg/data/leg2/test/nii_atlas_fov.nii.gz")
+    # data_target.save("/DATA/NAS/ongoing_projects/robert/code/TReg/data/leg2/test/data_target.nii.gz")
+    # for k, v in others.items():
+    #    v.save(f"/DATA/NAS/ongoing_projects/robert/code/TReg/data/leg2/test/{k}.nii.gz")
     # if (
     #    (img.get("sub") == "CTFU01051" and img.get("ses") == "02340")
     #    or (img.get("sub") == "MM00052" and img.get("ses") == "00380")
@@ -595,7 +630,14 @@ def run_all(
     bone = img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "bone"})
     if not bone.exists() and make_bone:
         to_nii(VIBESeg_12, True).extract_label(Full_Body_Instance.bone(), True).save(bone)
-
+    if not is_rib_fixed(img_file, parent):
+        override = True
+    if not img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "fov-leg-left-2-veerman"}).exists():
+        override = True
+    # override = True  # TODO REMOVE
+    # if out_atlas_final.exists() and to_nii(out_atlas_final, True).sum() == 0:
+    #    print("unlink defective atlas")
+    #    out_atlas_final.unlink(True)
     if out_poi_final.exists() and out_atlas_final.exists() and not override:  # out_poi_final_leg.exists()
         logger.on_ok(out_atlas_final.name, "exist; Skip!")
         return
@@ -613,14 +655,17 @@ def run_all(
         poi_final.join_left_(rib_pois.to_cord_system(poi_final.itk_coords))
     fail = False
     for task in tasks:
+        leg_keys = ["leg-left", "leg-right", "leg-left-2", "leg-right-2"]
         try:
             if skip_feet and "feet" in str(task.task_id):
                 continue
             poi_file, _ = reg(task, img_file, VIBESeg_12, rib_instance, parent=parent, rib_pois=rib_pois)
             if not poi_file.exists():
                 continue
+            poi_file = fix_rib(task, rib_instance, img_file, poi_file, parent)
+
             poi = POI_Global.load(poi_file, itk_coords=True)
-            if task.task_id in ["leg_left", "leg_right"]:
+            if task.task_id in leg_keys:
                 from TPTBox.core.vert_constants import _ABBREVIATION_TO_ENUM
 
                 def mk_tuple(v):
@@ -629,13 +674,13 @@ def run_all(
 
                 m = {
                     mk_tuple(v): (
-                        _ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id == "leg_right" else 100),
+                        _ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id in ["leg-right", "leg-right-2"] else 100),
                         _ABBREVIATION_TO_ENUM[k][1].value,
                     )
                     for v, k in poi.info["label_name"].items()
                 }
                 label_name = {
-                    f"({_ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id == 'leg_right' else 100)}, {_ABBREVIATION_TO_ENUM[k][1].value})": (
+                    f"({_ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id in ['leg-right', 'leg-right-2'] else 100)}, {_ABBREVIATION_TO_ENUM[k][1].value})": (
                         k
                     )
                     for v, k in poi.info["label_name"].items()
@@ -644,7 +689,7 @@ def run_all(
                 poi.info["label_name"] = label_name
 
             assert len([a for a in poi.keys() if a in poi_final]) == 0, [a for a in poi.keys() if a in poi_final]
-            poi_final_leg.join_left_(poi) if task.task_id in ["leg_left", "leg_right"] else poi_final.join_left_(poi)
+            poi_final_leg.join_left_(poi) if task.task_id in leg_keys else poi_final.join_left_(poi)
 
         except Exception:
             logger.print_error()
@@ -653,12 +698,13 @@ def run_all(
         # for i in
     if fail:
         return
+
     # return
     from TPTBox.core.vert_constants import _ABBREVIATION_TO_ENUM
 
     old = img_file.get_changed_path("json", "poi", parent=parent, info={"seg": "torso"})
-    poi_veerman_left = old.parent / "stl_L" / "poi.json"
-    poi_veerman_right = old.parent / "stl_R" / "poi.json"
+    poi_veerman_left = old.parent / "stl-leg-left-2_L" / "poi.json"
+    poi_veerman_right = old.parent / "stl-leg-right-2_R" / "poi.json"
 
     from treg.veerman_rules_based import run_single_case
 
@@ -667,7 +713,7 @@ def run_all(
             "nii.gz",
             "msk",
             parent=parent,
-            info={"seg": f"fov-leg_{'right' if l == 'R' else 'left'}-veerman"},
+            info={"seg": f"fov-leg-{'right-2' if l == 'R' else 'left-2'}-veerman"},
         )
         if not poi.exists() and verman_seg.exists():
             print("run_single_case")
@@ -686,7 +732,6 @@ def run_all(
                 k2 = 11
             poi_final_leg[k1 + offset, k2 + of] = coord
             poi_final_leg.info["label_name"][f"({k1 + offset}, {k2 + of})"] = name + "-veerman"
-
     out_seg = to_nii(VIBESeg_12, True) * 0
     poi_final = poi_final.to_local(out_seg).filter_points_inside_shape(inplace=True).to_global(itk_coords=True)
     poi_final_leg = poi_final_leg.to_local(out_seg).filter_points_inside_shape(inplace=True).to_global(itk_coords=True)
@@ -696,7 +741,7 @@ def run_all(
     poi_final_leg.save(out_poi_final_leg, make_parents=True)
     poi_final_leg.save_mrk(out_poi_final_leg, split_by_region=True)
 
-    for f in poi_file.parent.glob(f"*sequ-{ct.get('sequ')}*seg-fov*"):
+    for f in poi_file.parent.glob(f"*sequ-{img_file.get('sequ')}*seg-fov*"):
         nii = to_nii(f, True).resample_from_to(out_seg, mode="constant")
         out_seg[nii != 0] = nii[nii != 0]
     out_seg.set_dtype("smallest_uint").save(out_atlas_final)
@@ -743,20 +788,20 @@ if __name__ == "__main__":
         # q.filter("sub", ["CTFU00354"])  #
         # q.filter("ses", ["03470"])  #
         for fam in q.loop_dict():
-            ct = fam["ct"][0]
+            img_file = fam["ct"][0]
             vert: BIDS_FILE = fam["msk_seg-vert"][0]
             vibe_seg = fam["msk_seg-VIBESeg-12"][0]
             if not vert.exists():
                 continue
             if not vibe_seg.exists():
                 continue
-            all_files.append([ct, vibe_seg, vert])
-    #
+            all_files.append([img_file, vibe_seg, vert])
+
     import random
 
     #
     # random.seed(42)
-    random.shuffle(all_files)
+    # random.shuffle(all_files)
     print()
     print(len(all_files))
     # all_files = all_files[:10]
