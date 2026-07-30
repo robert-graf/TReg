@@ -630,10 +630,10 @@ def run_all(
     bone = img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "bone"})
     if not bone.exists() and make_bone:
         to_nii(VIBESeg_12, True).extract_label(Full_Body_Instance.bone(), True).save(bone)
-    if not is_rib_fixed(img_file, parent):
-        override = True
-    if not img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "fov-leg-left-2-veerman"}).exists():
-        override = True
+    # if not is_rib_fixed(img_file, parent):
+    #    override = True
+    # if not img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "fov-leg-left-2-veerman"}).exists():
+    #    override = True
     # override = True  # TODO REMOVE
     # if out_atlas_final.exists() and to_nii(out_atlas_final, True).sum() == 0:
     #    print("unlink defective atlas")
@@ -747,7 +747,7 @@ def run_all(
     out_seg.set_dtype("smallest_uint").save(out_atlas_final)
 
 
-gpu = 0
+gpu = 4
 if __name__ == "__main__":
     # ds = Path("/media/data/robert/dataset-myelom/dataset-myelom/")
     # ds = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom")
@@ -777,7 +777,7 @@ if __name__ == "__main__":
 
     ## Create job list
     all_files = []
-    for sub, subj in bgi.enumerate_subjects(shuffle=False, sort=True):
+    for sub, subj in bgi.enumerate_subjects(shuffle=True, sort=False):
         q = subj.new_query()
         # q.flatten()
         q.filter_filetype("nii.gz")
