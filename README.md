@@ -5,26 +5,15 @@
 
 ## Installation Guide
 
+## Installation Guide
+
 ### System Requirements
-
-* **Python:** 3.10 or newer
-* **Operating Systems:** Tested on **Ubuntu** and **Windows**
-* **Hardware (one of the following):**
-
-  * **NVIDIA GPU** with CUDA support and sufficient VRAM (recommended)
-
-    * device: `cuda`
-  * **Apple Silicon (M2/M3)** using Metal Performance Shaders
-
-    * device: `mps` (not extensively tested)
-  * **Strong CPU** (slowest option)
-
-    * device: `cpu`
-
-> ⚠️ Required GPU memory depends on your image size.
-
----
-
+- Python 3.9 or higher.
+- Tested on Ubuntu and Windows.
+- One of the following:
+  - Nvidia-GPU with 8 GB of RAM or more.
+  - A mps device (--ddevice mps)
+  - A strong CPU; This is usually very slow. (--ddevice cpu)
 ## Installation
 
 ### 1. Open a Terminal
@@ -66,15 +55,9 @@ pip install torch torchvision torchaudio
 
 ```bash
 pip install TPTBox ruamel.yaml configargparse
+pip install hf-deepali
 pip install nnunetv2
 ```
-
-**Tested versions:**
-
-* `TPTBox==1.6`
-* `ruamel.yaml==0.18.6`
-* `configargparse==1.7`
-* `nnunetv2==2.4.2`
 
 If `nnunetv2` causes issues, reinstall the tested version:
 
@@ -101,23 +84,20 @@ The longest step is usually installing PyTorch.
 
 We recommend **VS Code** for the smoothest experience.
 
-### Steps
+### Steps Leg
 
-1. Open `treg_example.ipynb`
+1. Open `treg_leg.ipynb`
 2. Select the **VIBESegmentator** Python environment
-3. Download the example data (**TODO**) or create your own
-4. Use your own segmentation or use on of our provided Segmentation tools (can also be called via TPTBox)
-   1. [VIBESeg](https://github.com/robert-graf/VIBESegmentator)
-   2. [SPINEPS](https://github.com/Hendrik-code/spineps)
-5. Update all file paths in the notebook
-6. Run the cells sequentially
+3. Update all file paths in the notebook
+4. Run the cells sequentially
 
 ---
 
-## Working with Landmark (`.mrk.json`) Files
+### Working with Landmark (`.mrk.json`) Files
+
 
 * Landmark files can be created and opened in **3D Slicer**
+### `poi.json`
 * If saved in **Local Coordinates**, landmark positions correspond to **pixel indices**
-
-  * Indexing starts at **0**, so values may appear offset by one
+* Local Indexing starts at **0**, so values may offset by one in soft ware like ITKSnap
 

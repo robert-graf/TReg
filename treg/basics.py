@@ -3,7 +3,7 @@ from typing import Literal
 
 import pandas as pd
 import torch
-from TPTBox import NII, Image_Reference, POI_Global, Print_Logger, to_nii
+from TPTBox import BIDS_FILE, Image_Reference, POI_Global, Print_Logger, to_nii
 from TPTBox.core.vert_constants import Full_Body_Instance
 from TPTBox.registration import Template_Registration
 
@@ -30,7 +30,7 @@ mapping_mirror = {
     Full_Body_Instance.tibia_left.value: Full_Body_Instance.tibia_right.value,
     Full_Body_Instance.fibula_left.value: Full_Body_Instance.fibula_right.value,
 }
-weights_default = {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": 0.001}
+weights_default = {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [1, 0.01, 0.001, 0.00]}
 
 
 def resolve_device(ddevice: Literal["cpu", "cuda", "mps"], gpu: int = 0) -> torch.device:
@@ -60,6 +60,25 @@ def bin_mask(path: Path, override=False):
     return bin_msk
 
 
+def make_file_names(files, sides):
+    # {"img":out,"seg":out_seg,"dataset":l[0].dataset}
+    ds = BIDS_FILE(files["img"], files["dataset"])
+    for side in sides:
+        files[side] = {}
+        files[side]["target_out_poi"] = ds.get_changed_path("json", "poi", info={"desc": "atlas", "seg": side}, additional_folder=side)
+        files[side]["target_out_subdivided"] = ds.get_changed_path(
+            "nii.gz", "msk", info={"desc": "atlas", "seg": side}, additional_folder=side
+        )
+        files[side]["target_out_angle"] = ds.get_changed_path("nii.gz", "msk", info={"desc": "angle", "seg": side}, additional_folder=side)
+        files[side]["target_out_angle2"] = ds.get_changed_path(
+            "nii.gz", "msk", info={"desc": "angle-veerman", "seg": side}, additional_folder=side
+        )
+        files[side]["target_out_angle3"] = ds.get_changed_path(
+            "json", "poi", info={"desc": "angle-veerman", "seg": side}, additional_folder=side
+        )
+        files[side]["mirror"] = "right" in side
+
+
 def run_all(
     files: dict,
     sides: list,
@@ -80,6 +99,7 @@ def run_all(
     ddevice: Literal["cpu", "cuda", "mps"] = "cuda",
     gpu=0,
 ):
+    make_file_names(files, sides)
     if weights is None:
         weights = weights_default
     binary_msk = bin_mask(files["bin_msk"]) if "bin_msk" in files else None
@@ -122,8 +142,9 @@ def run_all(
             stl_folder=Path(files[side]["target_out_subdivided"]).parent / "stl",
             side="L" if side.lower() == "left" else "R",
             output_csv=str(files[side]["target_out_angle2"]).split(".")[0] + ".csv",
+            out_poi=files[side]["target_out_angle3"],
         )
-        return reg
+    return reg
 
 
 def treg_one_leg(

@@ -1339,7 +1339,9 @@ def color_from_idx(i, n=12):
     ]
 
 
-def run_single_case(nii, stl_folder: "Path | str", side: Literal["R", "L"], output_csv=None, verbose=True, allow_partial=False):
+def run_single_case(
+    nii, stl_folder: "Path | str", side: Literal["R", "L"], output_csv=None, out_poi=None, verbose=True, allow_partial=False
+):
     """Run the full pipeline for one case and return results dict."""
     stl_folder = Path(stl_folder)
 
@@ -1401,8 +1403,10 @@ def run_single_case(nii, stl_folder: "Path | str", side: Literal["R", "L"], outp
     global_poi = poi
     print(poi.info.keys())
     del poi.info["meshes"]
-    global_poi.save_mrk(stl_folder / "poi.mrk.json", split_by_region=True, add_lines=angle_lines)
-    poi.to_local(nii).save(stl_folder / "poi.json")
+    if out_poi is None:
+        out_poi = stl_folder / "poi.json"
+    global_poi.save_mrk(out_poi, split_by_region=True, add_lines=angle_lines)
+    poi.to_local(nii).save(out_poi)
 
     return global_poi
 

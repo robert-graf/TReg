@@ -698,6 +698,8 @@ def run_all(
         # for i in
     if fail:
         return
+    poi_veerman_left = out_poi_final.parent / "stl_L" / "poi.json"
+    poi_veerman_right = out_poi_final.parent / "stl_R" / "poi.json"
 
     # return
     from TPTBox.core.vert_constants import _ABBREVIATION_TO_ENUM
