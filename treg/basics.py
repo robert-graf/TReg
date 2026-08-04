@@ -31,6 +31,7 @@ mapping_mirror = {
     Full_Body_Instance.fibula_left.value: Full_Body_Instance.fibula_right.value,
 }
 weights_default = {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [1, 0.01, 0.001, 0.00]}
+weights_default_2 = {"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]}
 
 
 def resolve_device(ddevice: Literal["cpu", "cuda", "mps"], gpu: int = 0) -> torch.device:
@@ -101,7 +102,7 @@ def run_all(
 ):
     make_file_names(files, sides)
     if weights is None:
-        weights = weights_default
+        weights = weights_default_2 if "leg-2" in str(atlas_seg_file) else weights_default
     binary_msk = bin_mask(files["bin_msk"]) if "bin_msk" in files else None
 
     for side in sides:
