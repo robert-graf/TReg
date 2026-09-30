@@ -139,7 +139,7 @@ def get_tasks_ct():
         #    },
         # ),
         Task(
-            "leg-left-2",
+            "leg-left-3",
             [FB.femur_left, FB.patella_left, FB.tibia_left, FB.fibula_left],
             [root_atlas.parent / "leg2" / "sub-atlas_seg-poi_poi.json"],
             others={
@@ -150,9 +150,10 @@ def get_tasks_ct():
             },
             gt_12=root_atlas.parent / "leg2" / "sub-atlas_seg-VIBESeg-12_msk.nii.gz",
             # weights={"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [0.01, 0.01, 0.001, 0]},
+            weights={"be": [0.001, 0.001, 0.0001, 0.00001], "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [1, 0.01, 0.001, 0.00]},
         ),
         Task(
-            "leg-right-2",
+            "leg-right-3",
             [FB.femur_right, FB.patella_right, FB.tibia_right, FB.fibula_right],
             [root_atlas.parent / "leg2" / "sub-atlas_seg-poi_poi.json"],
             mirror=True,
@@ -168,6 +169,7 @@ def get_tasks_ct():
                 Full_Body_Instance.fibula_right.value: Full_Body_Instance.fibula_left.value,
             },
             gt_12=root_atlas.parent / "leg2" / "sub-atlas_seg-VIBESeg-12_msk.nii.gz",
+            weights={"be": [0.001, 0.001, 0.0001, 0.00001], "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [1, 0.01, 0.001, 0.00]},
         ),
         Task(
             "hip",
@@ -227,12 +229,7 @@ def get_tasks_ct():
             [FB.rib_left],
             [atlas_poi_folder / "ribcage_l.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
-            weights={
-                "be": 0.0001,
-                "seg": 1,
-                "Dice": [0.01, 0.1, 0.1, 0.1],
-                "Tether": [1, 0.1, 0.001, 0],
-            },
+            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
             others={"rib": atlas_templates_folder / "rib_left.nii.gz"},
         ),
         Task(
@@ -240,12 +237,7 @@ def get_tasks_ct():
             [FB.rib_right],
             [atlas_poi_folder / "ribcage_r.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
-            weights={
-                "be": 0.0001,
-                "seg": 1,
-                "Dice": [0.01, 0.1, 0.1, 0.1],
-                "Tether": [1, 0.1, 0.001, 0],
-            },
+            weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
             others={"rib": atlas_templates_folder / "rib_right.nii.gz"},
         ),
         Task(
@@ -260,12 +252,22 @@ def get_tasks_ct():
             [],
             others={"subreg": atlas_templates_folder / "foot.nii.gz"},
             mirror=True,
-            mapping_target={
-                x.value: FB[x.name.replace("_right", "_left")].value
-                for x in FB.feet()
-                if "left" not in x.name
-            },
+            mapping_target={x.value: FB[x.name.replace("_right", "_left")].value for x in FB.feet() if "left" not in x.name},
         ),
+        # Task(
+        #    "feet-left",
+        #    [x for x in FB.feet() if "left" in x.name],
+        #    [],
+        #    others={"subreg": atlas_templates_folder / "foot.nii.gz"},
+        # ),
+        # Task(
+        #    "feet-right",
+        #    [x for x in FB.feet() if "left" not in x.name],
+        #    [],
+        #    others={"subreg": atlas_templates_folder / "foot.nii.gz"},
+        #    mirror=True,
+        #    mapping_target={x.value: FB[x.name.replace("_right", "_left")].value for x in FB.feet() if "left" not in x.name},
+        # ),
     ]
 
 
@@ -759,27 +761,21 @@ def run_all(
     if not VIBESeg_12.exists():
         logger.on_fail(VIBESeg_12, "missing; Skip!")
         return
-    out_poi_final = img_file.get_changed_path(
-        "json", "poi", parent=parent_final, info={"seg": "torso"}
-    )
-    out_poi_final_leg = img_file.get_changed_path(
-        "json", "poi", parent=parent_final, info={"seg": "leg"}
-    )
-    out_atlas_final = img_file.get_changed_path(
-        "nii.gz", "msk", parent=parent_final, info={"seg": "treg"}
-    )
-
-    bone = img_file.get_changed_path(
-        "nii.gz", "msk", parent=parent, info={"seg": "bone"}
-    )
+    out_poi_final = img_file.get_changed_path("json", "poi", parent=parent_final, info={"seg": "torso"})
+    out_poi_final_leg = img_file.get_changed_path("json", "poi", parent=parent_final, info={"seg": "leg"})
+    out_atlas_final = img_file.get_changed_path("nii.gz", "msk", parent=parent_final, info={"seg": "treg"})
+    bone = img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "bone"})
     if not bone.exists() and make_bone:
         to_nii(VIBESeg_12, True).extract_label(Full_Body_Instance.bone(), True).save(
             bone
         )
     # if not is_rib_fixed(img_file, parent):
     #    override = True
-    # if not img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "fov-leg-left-2-veerman"}).exists():
-    #    override = True
+    if (
+        not img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "fov-leg-left-3-veerman"}).exists()
+        and img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "fov-leg-left-2-veerman"}).exists()
+    ):
+        override = True
     # override = True  # TODO REMOVE
     # if out_atlas_final.exists() and to_nii(out_atlas_final, True).sum() == 0:
     #    print("unlink defective atlas")
@@ -808,7 +804,7 @@ def run_all(
         poi_final.join_left_(rib_pois.to_cord_system(poi_final.itk_coords))
     fail = False
     for task in tasks:
-        leg_keys = ["leg-left", "leg-right", "leg-left-2", "leg-right-2"]
+        leg_keys = ["leg-left", "leg-right", "leg-left-2", "leg-right-2", "leg-left-3", "leg-right-3"]
         try:
             if skip_feet and "feet" in str(task.task_id):
                 continue
@@ -840,14 +836,13 @@ def run_all(
 
                 m = {
                     mk_tuple(v): (
-                        _ABBREVIATION_TO_ENUM[k][0].value
-                        + (0 if task.task_id in ["leg-right", "leg-right-2"] else 100),
+                        _ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id in ["leg-right", "leg-right-2", "leg-right-3"] else 100),
                         _ABBREVIATION_TO_ENUM[k][1].value,
                     )
                     for v, k in poi.info["label_name"].items()
                 }
                 label_name = {
-                    f"({_ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id in ['leg-right', 'leg-right-2'] else 100)}, {_ABBREVIATION_TO_ENUM[k][1].value})": (
+                    f"({_ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id in ['leg-right', 'leg-right-2', 'leg-right-3'] else 100)}, {_ABBREVIATION_TO_ENUM[k][1].value})": (
                         k
                     )
                     for v, k in poi.info["label_name"].items()
@@ -876,8 +871,8 @@ def run_all(
     from TPTBox.core.vert_constants import _ABBREVIATION_TO_ENUM
 
     old = img_file.get_changed_path("json", "poi", parent=parent, info={"seg": "torso"})
-    poi_veerman_left = old.parent / "stl-leg-left-2_L" / "poi.json"
-    poi_veerman_right = old.parent / "stl-leg-right-2_R" / "poi.json"
+    poi_veerman_left = old.parent / "stl-leg-left-3_L" / "poi.json"
+    poi_veerman_right = old.parent / "stl-leg-right-3_R" / "poi.json"
 
     from treg.veerman_rules_based import run_single_case
 
@@ -886,7 +881,7 @@ def run_all(
             "nii.gz",
             "msk",
             parent=parent,
-            info={"seg": f"fov-leg-{'right-2' if l == 'R' else 'left-2'}-veerman"},
+            info={"seg": f"fov-leg-{'right-3' if l == 'R' else 'left-3'}-veerman"},
         )
         if not poi.exists() and verman_seg.exists():
             print("run_single_case")
@@ -923,10 +918,32 @@ def run_all(
     poi_final.save_mrk(out_poi_final, split_by_region=True)
     poi_final_leg.save(out_poi_final_leg, make_parents=True)
     poi_final_leg.save_mrk(out_poi_final_leg, split_by_region=True)
-
-    for f in poi_file.parent.glob(f"*sequ-{img_file.get('sequ')}*seg-fov*"):
-        nii = to_nii(f, True).resample_from_to(out_seg, mode="constant")
-        out_seg[nii != 0] = nii[nii != 0]
+    skip = [
+        "fov-leg-right-veerman",
+        "fov-leg-left-veerman",
+        "fov-feet-right-subreg",
+        "fov-feet-left-subreg",
+        "fov-ribs-right-rib",
+        "fov-ribs-left-rib",
+        "fov-hip-sacrum-5",
+        "fov-leg-right-2-veerman",
+        "fov-leg-left-2-veerman",
+    ]
+    keys = [
+        "fov-leg-right-3-veerman",
+        "fov-leg-left-3-veerman",
+        "fov-hip-subreg",
+        "fov-hip-sacrum-s5",
+        "fov-arm-right-subreg",
+        "fov-arm-left-subreg",
+        "fov-shoulder-left-subreg",
+        "fov-shoulder-right-subreg",
+    ]
+    for fov in keys:
+        for f in poi_file.parent.glob(f"*sequ-{img_file.get('sequ')}*seg-{fov}_msk*"):
+            print(f)
+            nii = to_nii(f, True).resample_from_to(out_seg, mode="constant")
+            out_seg[nii != 0] = nii[nii != 0]
     out_seg.set_dtype("smallest_uint").save(out_atlas_final)
 
 
@@ -968,8 +985,8 @@ if __name__ == "__main__":
         q.filter("seg", "spine")
         q.filter("seg", "vert")
         q.filter("seg", "VIBESeg-12")
-        # q.filter("sub", ["CTFU00354"])  #
-        # q.filter("ses", ["03470"])  #
+        # q.filter("sub", ["CTFU00066"])  #
+        # q.filter("ses", ["00000"])  #
         for fam in q.loop_dict():
             img_file = fam["ct"][0]
             vert: BIDS_FILE = fam["msk_seg-vert"][0]
