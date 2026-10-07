@@ -11,7 +11,11 @@ from TPTBox.core.bids_files import Buffered_BIDS_Global_info
 from TPTBox.core.vert_constants import Full_Body_Instance, Vertebra_Instance
 
 sys.path.append(str(Path(__file__).parent.parent))
-from TPTBox.registration._deformable.multilabel_segmentation import Template_Registration
+
+try:
+    from TPTBox.registration._deformable.multilabel_segmentation import Template_Registration2 as Template_Registration
+except ImportError:
+    from TPTBox.registration._deformable.multilabel_segmentation import Template_Registration
 
 from treg.mesh_analysis import AnalysisError
 from treg_fullbody.fix_rib_poi import fix_rib, is_rib_fixed
@@ -214,6 +218,7 @@ def change_rib_reference(
     rib_length=None,
     ribs_shorten=None,
 ):
+    # Deprecated.
     key_others = "rib"
     assert key_others in others, others
     if ribs_shorten is None:
@@ -376,8 +381,8 @@ def get_atlas_poi(task: Task, rib_pois: POI_Global | None = None, save_debug=Fal
             poi_cms_atlas.to_global().save_mrk(cms_path)
             poi_cms_atlas.save(cms_path)
 
-    if rib_pois is not None and task.ribs:
-        poi_atlas, atlas_fov, others = change_rib_reference(task, rib_pois, poi_atlas, atlas_fov, others)
+    # if rib_pois is not None and task.ribs:
+    #    poi_atlas, atlas_fov, others = change_rib_reference(task, rib_pois, poi_atlas, atlas_fov, others)
     # save_debug
     if save_debug and buffer_folder is not None:
         task_path = buffer_folder / f"task-{task.task_id}.json"
@@ -545,18 +550,22 @@ def reg(task: Task, img: BIDS_FILE, seg_vibe12: Image_Reference, ribs: Image_Ref
     # data_target.save("/DATA/NAS/ongoing_projects/robert/code/TReg/data/leg2/test/data_target.nii.gz")
     # for k, v in others.items():
     #    v.save(f"/DATA/NAS/ongoing_projects/robert/code/TReg/data/leg2/test/{k}.nii.gz")
-    # if (
-    #    (img.get("sub") == "CTFU01051" and img.get("ses") == "02340")
-    #    or (img.get("sub") == "MM00052" and img.get("ses") == "00380")
-    #    or (img.get("sub") == "MM00161" and img.get("ses") == "00000")
-    # ):  # TODO Remove
-    #    from copy import deepcopy
+    # if False:
+    #    if (
+    #        (img.get("sub") == "CTFU01051" and img.get("ses") == "02340")
+    #        or (img.get("sub") == "MM00052" and img.get("ses") == "00380")
+    #        or (img.get("sub") == "MM00161" and img.get("ses") == "00000")
+    #        or ((img.get("sub") == "CTFU04045" and img.get("ses") == "02480") and "rib" in str(task.task_id))
+    #        or ((img.get("sub") == "MM00037" and img.get("ses") == "00500") and "rib" in str(task.task_id))
+    #    ):  # TODO Remove
+    #        from copy import deepcopy
     #
-    #    task = deepcopy(task)
-    #    task.finest_level += 1
-    #    # sub-MM00052_ses-00380_sequ-203_mod-ct_seg-VIBESeg-12_msk.['nii.gz'] data/full_body/pois/ribcage_l.mrk.json
+    #        print("reduce level")
+    #        task = deepcopy(task)
+    #        task.finest_level += 1
+
     reg = Template_Registration(
-        data_target,  # [::2, ::2, ::2],  # Target segmentation
+        data_target,  # If OOM may help: .filter_connected_components(max_count_component=1, keep_label=True); or remove one finest_level # [::2, ::2, ::2],  # Target segmentation
         nii_atlas_fov,  # Starting Segmentation (not the split one)
         same_side=True,
         lr=task.lr,
@@ -629,7 +638,9 @@ def run_all(
     out_poi_final_leg = img_file.get_changed_path("json", "poi", parent=parent_final, info={"seg": "leg"})
     out_atlas_final = img_file.get_changed_path("nii.gz", "msk", parent=parent_final, info={"seg": "treg"})
     bone = img_file.get_changed_path("nii.gz", "msk", parent=parent, info={"seg": "bone"})
-    if not bone.exists() and make_bone:
+    if isinstance(VIBESeg_12, BIDS_FILE):
+        VIBESeg_12 = VIBESeg_12.get_nii_file()  # type: ignore
+    if make_bone and (not bone.exists() or bone.stat().st_mtime < VIBESeg_12.stat().st_mtime):
         to_nii(VIBESeg_12, True).extract_label(Full_Body_Instance.bone(), True).save(bone)
     # if not is_rib_fixed(img_file, parent):
     #    override = True
@@ -775,7 +786,7 @@ def run_all(
     out_seg.set_dtype("smallest_uint").save(out_atlas_final)
 
 
-gpu = 4
+gpu = 0
 if __name__ == "__main__":
     # ds = Path("/media/data/robert/dataset-myelom/dataset-myelom/")
     # ds = Path("/DATA/NAS/datasets_processed/CT_spine/dataset-myelom")

@@ -13,7 +13,6 @@ Usage: Import functions and call step-by-step, or use batch_runner.py.
 """
 
 import csv
-import logging
 import math
 import os
 import sys
@@ -25,7 +24,7 @@ import numpy as np
 import stl
 import trimesh
 from numpy.linalg import norm, svd
-from TPTBox import NII, POI, POI_Global, Print_Logger, to_nii
+from TPTBox import NII, POI_Global, Print_Logger, to_nii
 from TPTBox.core.poi_fun.save_mkr import MKR_Lines
 
 out = str(Path(__file__).parent.parent)
@@ -183,6 +182,8 @@ def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, sid
             loaded.append(stem)
         except IndexError as e:
             logger.on_fail(e)
+        except ValueError as e:
+            logger.on_fail(e)
     if len(loaded) != len(EXPECTED_MESHES) and not allow_partial:
         missing = set(EXPECTED_MESHES) - set(loaded)
         raise AnalysisError(f"Missing meshes: {missing}")
@@ -306,13 +307,18 @@ def _get_centroid(
     else:
         try:
             if isinstance(stem, str):
-                mesh = get_stl(nii, stem=stem, stl_folder=stl_folder, side=side)
+                try:
+                    mesh = get_stl(nii, stem=stem, stl_folder=stl_folder, side=side)
+                except ValueError:
+                    return
             else:
                 mesh = MeshWrapper.concatenate([get_stl(nii, stem=s, stl_folder=stl_folder, side=side) for s in stem])
             neck_centroid = mesh.area_weighted_centroid()
             if out_poi is not None:
                 out_poi[POI_MAP[key]] = neck_centroid
         except IndexError:
+            return None
+        except ValueError:
             return None
     logger.info(f"{name} centroid: ({neck_centroid[0]:.2f}, {neck_centroid[1]:.2f}, {neck_centroid[2]:.2f})", verbose=verbose)
     return np.array(neck_centroid)
@@ -351,7 +357,10 @@ def get_TKC(
     if out_poi is not None:
         out_poi[POI_MAP[_key]] = prox_tib_center
 
-    logger.info(f"{_name} center: ({prox_tib_center[0]:.2f}, {prox_tib_center[1]:.2f}, {prox_tib_center[2]:.2f})", verbose=verbose)
+    logger.info(
+        f"{_name} center: ({prox_tib_center[0]:.2f}, {prox_tib_center[1]:.2f}, {prox_tib_center[2]:.2f})",
+        verbose=verbose,
+    )
 
 
 get_TRMP = partial(_get_centroid, stem="fem_trochlea_medial", name=None, key="TRMP")
@@ -707,13 +716,13 @@ def step_3(poi: POI_Global, allow_partial=False):
     fem_Z_align = np.dot(fem_Z, cranial_dir)
     tib_Z_align = np.dot(tib_Z, cranial_dir)
     logger.info(f"Z cranial check: fem_Z·cranial={fem_Z_align:.4f}, tib_Z·cranial={tib_Z_align:.4f} (should be > 0.9)")
-    if fem_Z_align < 0.7:
+    if fem_Z_align < 0.7 and not allow_partial:
         raise AnalysisError(f"Femoral Z·cranial={fem_Z_align:.4f} < 0.7")
     elif fem_Z_align < 0.9:
         w = f"WARN: Femoral Z·cranial={fem_Z_align:.4f} < 0.9 (axis strongly tilted)"
         logger.warning(w)
         results["warnings"].append(w)
-    if tib_Z_align < 0.7:
+    if tib_Z_align < 0.7 and not allow_partial:
         raise AnalysisError(f"Tibial Z·cranial={tib_Z_align:.4f} < 0.7")
     elif tib_Z_align < 0.9:
         w = f"WARN: Tibial Z·cranial={tib_Z_align:.4f} < 0.9 (axis strongly tilted)"
@@ -1340,7 +1349,13 @@ def color_from_idx(i, n=12):
 
 
 def run_single_case(
-    nii, stl_folder: "Path | str", side: Literal["R", "L"], output_csv=None, out_poi=None, verbose=True, allow_partial=False
+    nii,
+    stl_folder: "Path | str",
+    side: Literal["R", "L"],
+    output_csv=None,
+    out_poi=None,
+    verbose=True,
+    allow_partial=False,
 ):
     """Run the full pipeline for one case and return results dict."""
     stl_folder = Path(stl_folder)
