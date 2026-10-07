@@ -93,6 +93,67 @@ We recommend **VS Code** for the smoothest experience.
 
 ---
 
+## Full-Body POI Inference (`example_inference.py`)
+
+Runs the whole pipeline with automatic segmentation over every CT in a BIDS-style dataset:
+
+1. **[VIBESeg-12](https://github.com/robert-graf/TotalVibeSegmentator)** → 12-label body segmentation (`seg-VIBESeg-12`); invoked via [TPTBox](https://github.com/Hendrik-code/TPTBox)'s `run_vibeseg`.
+2. **[SPINEPS](https://github.com/Hendrik-code/spineps)** → vertebra + spine segmentation; ribs are merged in via [TPTBox](https://github.com/Hendrik-code/TPTBox)'s `add_ribs_to_vert_spine` (`seg-vert-rib`, `seg-spine-rib`).
+3. **`treg_fullbody.full_body_poi.run_all`** → per-region atlas registration (shoulder, hip, arm, leg, ribs, feet …) and writes landmark POI files to `derivatives-treg/` / `derivatives-final-points/`.
+
+All stages are idempotent — existing output files are skipped on reruns.
+
+### Dataset layout
+
+The script expects a BIDS tree with a `rawdata/` folder containing CTs:
+
+```
+<root>/rawdata/sub-XYZ/sub-XYZ_ses-YYYY_sequ-N_ct.nii.gz
+```
+
+Derivatives land next to it under `derivatives/`, `derivatives-treg/`, and `derivatives-final-points/`.
+
+### Usage
+
+```bash
+python example_inference.py <dataset_root> [options]
+```
+
+Options:
+
+| Flag | Default | Description |
+|---|---|---|
+| `root` (positional) | `/DATA/NAS/datasets_processed/CT_fullbody/dataset-bonescreen-test2` | BIDS dataset root. |
+| `--gpu N` | `0` | GPU index. |
+| `--limit N` | *all* | Process only the first N CTs. |
+| `--no-sort` | *sort on* | Iterate subjects in BIDS traversal order instead of sorted. |
+| `--skip-spineps` | off | Skip the SPINEPS stage (expects `seg-vert-rib` + `seg-spine-rib` to already exist). |
+
+Examples:
+
+```bash
+# Run on one subject to smoke-test the full pipeline
+python example_inference.py /path/to/dataset --limit 1
+
+# Already have vertebra/spine outputs, only refresh the POI stage
+python example_inference.py /path/to/dataset --skip-spineps
+
+# Pick a different GPU
+python example_inference.py /path/to/dataset --gpu 1
+```
+
+### Outputs
+
+For each `sub-XYZ_ses-YYYY_sequ-N_ct.nii.gz`:
+
+- `derivatives/.../seg-VIBESeg-12_msk.nii.gz` — 12-label body segmentation.
+- `derivatives/.../seg-vert-rib_msk.nii.gz`, `seg-spine-rib_msk.nii.gz` — vertebra & spine with ribs.
+- `derivatives-treg/.../seg-treg-<region>_poi.json` + `.mrk.json` — per-region POI files (viewable in 3D Slicer).
+- `derivatives-treg/.../seg-fov-<region>-<subreg>_msk.nii.gz` — registered subregion masks.
+- `derivatives-final-points/.../seg-torso_poi.*`, `seg-leg_poi.*`, `seg-treg_msk.nii.gz` — merged final landmark set.
+
+---
+
 ### Working with Landmark (`.mrk.json`) Files
 
 
