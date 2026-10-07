@@ -6,7 +6,17 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from TPTBox import BIDS_FILE, NII, POI, BIDS_Global_info, Image_Reference, No_Logger, POI_Global, calc_centroids, to_nii
+from TPTBox import (
+    BIDS_FILE,
+    NII,
+    POI,
+    BIDS_Global_info,
+    Image_Reference,
+    No_Logger,
+    POI_Global,
+    calc_centroids,
+    to_nii,
+)
 from TPTBox.core.bids_files import Buffered_BIDS_Global_info
 from TPTBox.core.vert_constants import Full_Body_Instance, Vertebra_Instance
 
@@ -24,8 +34,8 @@ from treg_fullbody.subreg_2_poi import get_centroid, get_sphere_center
 
 logger = No_Logger(prefix="T-REG")
 
-ds = "/DATA/NAS/datasets_processed/CT_spine/dataset-myelom/"
-root_atlas = Path("data/full_body")
+# ds_name_hardcoded = "/DATA/NAS/datasets_processed/CT_spine/dataset-myelom/"
+root_atlas = Path(Path(__file__).parent.parent, "data/full_body")
 atlas_poi_folder = root_atlas / "pois"
 atlas_templates_folder = root_atlas / "templates"
 buffer_folder = root_atlas / "buffer_folder"
@@ -64,7 +74,14 @@ class Task:
     mapping_target: dict | None = None
     gt_rib: Path = atlas_templates_folder / "sub-CTFU04045_ses-02480_sequ-204_mod-ct_seg-vert_msk.nii.gz"
     gt_12: Path = atlas_templates_folder / "sub-CTFU04045_ses-02480_sequ-204_mod-ct_seg-VIBESeg-12_msk.nii.gz"
-    weights: dict = field(default_factory=lambda: {"be": 0.00001, "seg": 1, "Dice": [0.01, 0.01, 0.01, 0.1], "Tether": [1, 0.1, 0.001, 0]})
+    weights: dict = field(
+        default_factory=lambda: {
+            "be": 0.00001,
+            "seg": 1,
+            "Dice": [0.01, 0.01, 0.01, 0.1],
+            "Tether": [1, 0.1, 0.001, 0],
+        }
+    )
 
 
 def get_tasks_ct():
@@ -84,7 +101,10 @@ def get_tasks_ct():
         Task(
             "shoulder-right",
             [FB.clavicula_right, FB.scapula_right, FB.sternum],
-            [atlas_poi_folder / "clavicula_l.mrk.json", atlas_poi_folder / "scapula_l.mrk.json"],
+            [
+                atlas_poi_folder / "clavicula_l.mrk.json",
+                atlas_poi_folder / "scapula_l.mrk.json",
+            ],
             others={"subreg": atlas_templates_folder / "shoulder.nii.gz"},
             mirror=True,
             mapping_target={x.value: FB[x.name.replace("_right", "_left")].value for x in [FB.clavicula_right, FB.scapula_right]},
@@ -141,7 +161,11 @@ def get_tasks_ct():
         Task(
             "hip",
             [FB.sacrum, FB.pelvis_left, FB.pelvis_right],
-            [atlas_poi_folder / "pelvis_l_new.mrk.json", atlas_poi_folder / "pelvis_r_new.mrk.json", atlas_poi_folder / "sacrum.mrk.json"],
+            [
+                atlas_poi_folder / "pelvis_l_new.mrk.json",
+                atlas_poi_folder / "pelvis_r_new.mrk.json",
+                atlas_poi_folder / "sacrum.mrk.json",
+            ],
             others={
                 "sacrum-s5": atlas_templates_folder / "sacrum.nii.gz",
                 "subreg": atlas_templates_folder / "pelvis.nii.gz",
@@ -152,7 +176,10 @@ def get_tasks_ct():
         Task(
             "arm-left",
             [FB.hand_left, FB.radius_left, FB.ulna_left, FB.humerus_left],
-            [atlas_poi_folder / "UpperArm_left.json", atlas_poi_folder / "Forearm_left.json"],
+            [
+                atlas_poi_folder / "UpperArm_left.json",
+                atlas_poi_folder / "Forearm_left.json",
+            ],
             others={"subreg": atlas_templates_folder / "hand.nii.gz"},
             # _ids_subreg={105: [5, 20, 22, 24, 26, 27]},
             # _ids_subreg_2=[105, 104],
@@ -161,14 +188,22 @@ def get_tasks_ct():
         Task(
             "arm-right",
             [FB.hand_right, FB.radius_right, FB.ulna_right, FB.humerus_right],
-            [atlas_poi_folder / "UpperArm_left.json", atlas_poi_folder / "Forearm_left.json"],
+            [
+                atlas_poi_folder / "UpperArm_left.json",
+                atlas_poi_folder / "Forearm_left.json",
+            ],
             others={"subreg": atlas_templates_folder / "hand.nii.gz"},
             # _ids_subreg={105: [5, 19, 21, 23, 25, 28]},
             # _ids_subreg_2=[105, 104],
             mirror=True,
             mapping_target={
                 x.value: FB[x.name.replace("_right", "_left")].value
-                for x in [FB.hand_right, FB.radius_right, FB.ulna_right, FB.humerus_right]
+                for x in [
+                    FB.hand_right,
+                    FB.radius_right,
+                    FB.ulna_right,
+                    FB.humerus_right,
+                ]
             },
             subreg_POIs=[SubregPOI(idx=104, idx_subreg=1, poi_idx=(4, 1), algorithm="sphere")],
         ),
@@ -178,7 +213,7 @@ def get_tasks_ct():
             [atlas_poi_folder / "ribcage_l.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
             weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
-            # others={"rib": atlas_templates_folder / "rib_left.nii.gz"},
+            others={"rib": atlas_templates_folder / "rib_left.nii.gz"},
         ),
         Task(
             "ribs-right",
@@ -186,7 +221,21 @@ def get_tasks_ct():
             [atlas_poi_folder / "ribcage_r.mrk.json"],
             ribs=True,  # TODO add logic for RIBs
             weights={"be": 0.0001, "seg": 1, "Dice": [0.01, 0.1, 0.1, 0.1], "Tether": [1, 0.1, 0.001, 0]},
-            # others={"rib": atlas_templates_folder / "rib_right.nii.gz"},
+            others={"rib": atlas_templates_folder / "rib_right.nii.gz"},
+        ),
+        Task(
+            "feet-left",
+            [x for x in FB.feet() if "left" in x.name],
+            [],
+            others={"subreg": atlas_templates_folder / "foot.nii.gz"},
+        ),
+        Task(
+            "feet-right",
+            [x for x in FB.feet() if "left" not in x.name],
+            [],
+            others={"subreg": atlas_templates_folder / "foot.nii.gz"},
+            mirror=True,
+            mapping_target={x.value: FB[x.name.replace("_right", "_left")].value for x in FB.feet() if "left" not in x.name},
         ),
         # Task(
         #    "feet-left",
@@ -222,7 +271,12 @@ def change_rib_reference(
     key_others = "rib"
     assert key_others in others, others
     if ribs_shorten is None:
-        ribs_shorten = [Vertebra_Instance.T11, Vertebra_Instance.T12, Vertebra_Instance.L1, Vertebra_Instance.T13]
+        ribs_shorten = [
+            Vertebra_Instance.T11,
+            Vertebra_Instance.T12,
+            Vertebra_Instance.L1,
+            Vertebra_Instance.T13,
+        ]
     if rib_length is None:
         rib_lengths = [38, 30, 20]  # [38, 24, 10]
     logger.print("change_rib_reference")
@@ -321,8 +375,9 @@ def get_poi(path):
     poi = POI_Global.load(path)
     label_name = {}
     mapping = {}
-    for k1, k2 in poi.keys():
-        key = poi.info["label_name"][str((k1, k2))]
+    for k1, k2 in poi:
+        key = poi.label_name(k1, k2)
+
         key_new = poi_naming_schema.get(key.replace("sacrum_1", "sacrum"), {"name": key, "value": (k1, k2)})
         label_name[str(key_new["value"])] = key_new["name"]
         mapping[(k1, k2)] = key_new["value"]
@@ -343,7 +398,7 @@ def get_atlas_poi(task: Task, rib_pois: POI_Global | None = None, save_debug=Fal
         poi_curr = get_poi(p).to_cord_system(poi_atlas.itk_coords, True)
         logger.on_text(p.name, poi_curr.keys())
         for k, k2, cord in poi_curr.items():
-            label = poi_curr.info["label_name"][str((k, k2))]
+            label = poi_curr.label_name(k, k2)
             if task.mirror:
                 if k > 100:
                     k -= 100  # noqa: PLW2901
@@ -517,7 +572,14 @@ def post_reg(
         poi_reg.to_global().save_mrk(out_poi_final, main_key=f"fov-{task.task_id}")
 
 
-def reg(task: Task, img: BIDS_FILE, seg_vibe12: Image_Reference, ribs: Image_Reference, parent: str, rib_pois: POI_Global | None = None):
+def reg(
+    task: Task,
+    img: BIDS_FILE,
+    seg_vibe12: Image_Reference,
+    ribs: Image_Reference,
+    parent: str,
+    rib_pois: POI_Global | None = None,
+):
     out_poi_final, out_final = _path(img, parent, task)
     if len(task.input_pois) == 0 and len(task.others) != 0:
         out = img.get_changed_path(
@@ -591,7 +653,10 @@ def get_rib_info(img_file: BIDS_FILE, rib_instance: Path, parent, compute_rib_sp
         assert spine_seg.exists() and "spine" in spine_seg.name, spine_seg
         poi = POI_Global(itk_coords=False)
         poi.info["label_name"] = {}
-        from treg_fullbody.rib_length_measurement_algorithm import measure_ribs_length_subject, result_to_dict
+        from treg_fullbody.rib_length_measurement_algorithm import (
+            measure_ribs_length_subject,
+            result_to_dict,
+        )
 
         result = measure_ribs_length_subject(to_nii(rib_instance, True), to_nii(spine_seg, True), vert_ids=None)
         for r in result:
@@ -662,7 +727,12 @@ def run_all(
     poi_final_leg.info["label_name"] = {}
     rib_pois = None
     try:
-        rib_pois = get_rib_info(img_file, rib_instance, parent="derivatives-treg", compute_rib_special_cases=compute_rib_special_cases)
+        rib_pois = get_rib_info(
+            img_file,
+            rib_instance,
+            parent="derivatives-treg",
+            compute_rib_special_cases=compute_rib_special_cases,
+        )
     except AssertionError as e:
         logger.on_fail(e)
     # return
@@ -674,7 +744,14 @@ def run_all(
         try:
             if skip_feet and "feet" in str(task.task_id):
                 continue
-            poi_file, _ = reg(task, img_file, VIBESeg_12, rib_instance, parent=parent, rib_pois=rib_pois)
+            poi_file, _ = reg(
+                task,
+                img_file,
+                VIBESeg_12,
+                rib_instance,
+                parent=parent,
+                rib_pois=rib_pois,
+            )
             if not poi_file.exists():
                 continue
             poi_file = fix_rib(task, rib_instance, img_file, poi_file, parent)
@@ -739,7 +816,7 @@ def run_all(
             continue
         poi = POI_Global.load(poi, itk_coords=True)
         for k1, k2, coord in poi.items():
-            name = poi.info["label_name"][f"({k1}, {k2})"]
+            name = poi.label_name(k1, k2)
             of = 0 if name in ["FNC", "FHC"] else 100
             if name == "FNC":
                 k1 = 13
