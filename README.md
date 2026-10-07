@@ -97,7 +97,7 @@ We recommend **VS Code** for the smoothest experience.
 
 Runs the whole pipeline with automatic segmentation over every CT in a BIDS-style dataset:
 
-1. **[VIBESeg-12](https://github.com/robert-graf/TotalVibeSegmentator)** → 12-label body segmentation (`seg-VIBESeg-12`); invoked via [TPTBox](https://github.com/Hendrik-code/TPTBox)'s `run_vibeseg`.
+1. **[VIBESeg-12](https://github.com/robert-graf/VibeSegmentator)** → 12-label body segmentation (`seg-VIBESeg-12`); invoked via [TPTBox](https://github.com/Hendrik-code/TPTBox)'s `run_vibeseg`.
 2. **[SPINEPS](https://github.com/Hendrik-code/spineps)** → vertebra + spine segmentation; ribs are merged in via [TPTBox](https://github.com/Hendrik-code/TPTBox)'s `add_ribs_to_vert_spine` (`seg-vert-rib`, `seg-spine-rib`).
 3. **`treg_fullbody.full_body_poi.run_all`** → per-region atlas registration (shoulder, hip, arm, leg, ribs, feet …) and writes landmark POI files to `derivatives-treg/` / `derivatives-final-points/`.
 
