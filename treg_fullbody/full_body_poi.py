@@ -496,7 +496,7 @@ def post_reg(
 
             l = "R" if "right" in out.name else "L"
             try:
-                run_single_case(atlas_reg2, out.parent / f"stl-{task.task_id}_{l}", l)
+                run_single_case(atlas_reg2, out.parent / f"stl-{task.task_id}_{l}", l, allow_partial=True)
             except AnalysisError:
                 logger.print_error()
         elif "sacrum" in k:
@@ -600,10 +600,46 @@ def reg(
     poi_atlas, nii_atlas_fov, poi_atlas_cms, others = get_atlas_poi(task, rib_pois=rib_pois)
 
     u = data_target.unique()
-    if len(u) <= 1:
+    if len(u) < 1:
         logger.on_warning("No Segmentation in target")
         return _path(img, parent, task)
+    # Arm tasks need at least two distinct bone labels in the target: a single
+    # bone (e.g. a lone humerus with the forearm cut off) can be arbitrarily
+    # rotated vs. the arms-down atlas, and no single-bone fallback aligns that
+    # reliably. Skip rather than produce misleading POIs.
+    if "arm" in str(task.task_id) and len(u) < 2:
+        logger.on_warning(f"{task.task_id}: only {len(u)} arm bone(s) in target - need >=2 for a reliable rigid fit; skip")
+        return _path(img, parent, task)
     nii_atlas_fov = nii_atlas_fov.extract_label(u, True)
+    # Drop labels whose target segmentation touches the FOV border: their CMS
+    # is biased by the truncation and would wreck the rigid stage (observed on
+    # hip-only CTs where only the proximal femur is visible).
+    cms_ids = [int(l) for l in u if not data_target.extract_label(l).is_segmentation_in_border()]
+    dropped = [int(l) for l in u if int(l) not in cms_ids]
+    if dropped:
+        logger.on_warning(f"{task.task_id}: labels {dropped} touch target FOV border - excluded from rigid CMS")
+    poi_target_cms_fit: POI | None = None
+    if not cms_ids:
+        # All target labels truncated. Fall back to the innermost point of each
+        # mask (argmax of the EDT) so the rigid stage at least matches the
+        # robust interior of the visible region, not the CMS of a truncated blob.
+        from scipy.ndimage import distance_transform_edt
+
+        cms_ids = [int(l) for l in u]
+        logger.on_warning(f"{task.task_id}: all labels truncated - using innermost-point fallback for rigid anchor")
+        poi_target_cms_fit = data_target.make_empty_POI()
+        poi_atlas_cms_fit = nii_atlas_fov.make_empty_POI()
+        for lbl in cms_ids:
+            tmask = data_target.extract_label(lbl).get_seg_array().astype(bool)
+            amask = nii_atlas_fov.extract_label(lbl).get_seg_array().astype(bool)
+            if not tmask.any() or not amask.any():
+                continue
+            ti = np.unravel_index(int(np.argmax(distance_transform_edt(tmask))), tmask.shape)
+            ai = np.unravel_index(int(np.argmax(distance_transform_edt(amask))), amask.shape)
+            poi_target_cms_fit[lbl, 40] = tuple(float(x) for x in ti)
+            poi_atlas_cms_fit[lbl, 40] = tuple(float(x) for x in ai)
+    else:
+        poi_atlas_cms_fit = poi_atlas_cms.extract_region(cms_ids)
     ##################
     logger.on_log(f"Running task: {task!s};\n{data_target.shape=}; {nii_atlas_fov.shape=}")
     # logger.on_debug(f"{u}; {nii_atlas_fov.unique()=}")
@@ -637,20 +673,25 @@ def reg(
         coarsest_level=task.coarsest_level,
         finest_level=task.finest_level,
         weights=task.weights,
-        poi_cms=poi_atlas_cms,  # Can be None, than it will be computed automatically
+        poi_cms=poi_atlas_cms_fit,  # pre-filtered: labels truncated in target are dropped
+        poi_target_cms=poi_target_cms_fit,  # None except in the innermost-point fallback
+        cms_ids=cms_ids,  # restricts target-side CMS to the same labels (ignored when poi_target_cms is set)
         gpu=gpu,
     )
     post_reg(reg, task, img, poi_atlas, nii_atlas_fov, data_target, others, parent)
     return _path(img, parent, task)
 
 
-def get_rib_info(img_file: BIDS_FILE, rib_instance: Path, parent, compute_rib_special_cases=True):
+def get_rib_info(img_file: BIDS_FILE, rib_instance: Path, parent, compute_rib_special_cases=True, rib_spine=None):
     ds_rib = BIDS_FILE(rib_instance, img_file.dataset)
     rib_stats = ds_rib.get_changed_path("json", "poi", parent=parent, info={"seg": "rib-lengths"})
     rib_stats2 = Path(str(rib_stats).replace(".json", ".mrk.json"))
     if compute_rib_special_cases and (not rib_stats.exists() or not rib_stats2.exists()):
-        spine_seg = rib_instance.parent / (rib_instance.name.replace("vert", "spine"))
-        assert spine_seg.exists() and "spine" in spine_seg.name, spine_seg
+        spine_seg = rib_instance.parent / rib_instance.name.replace("vert", "spine") if rib_spine is None else rib_spine
+        assert spine_seg.exists() and "spine" in spine_seg.name, (
+            "expected spine in name" if spine_seg.exists() else "does not exist",
+            spine_seg.name,
+        )
         poi = POI_Global(itk_coords=False)
         poi.info["label_name"] = {}
         from treg_fullbody.rib_length_measurement_algorithm import (
@@ -688,6 +729,7 @@ def run_all(
     img_file: BIDS_FILE,
     VIBESeg_12: Path,
     rib_instance: Path,
+    rib_spine: Path | None = None,
     parent="derivatives-treg",
     compute_rib_special_cases=True,
     override=False,
@@ -696,6 +738,9 @@ def run_all(
     os.nice(15)
     if isinstance(rib_instance, BIDS_FILE):
         rib_instance = rib_instance.get_nii_file()  # type: ignore
+    if isinstance(rib_spine, BIDS_FILE):
+        rib_spine = rib_spine.get_nii_file()  # type: ignore
+
     if not VIBESeg_12.exists():
         logger.on_fail(VIBESeg_12, "missing; Skip!")
         return
@@ -721,7 +766,7 @@ def run_all(
     if out_poi_final.exists() and out_atlas_final.exists() and not override:  # out_poi_final_leg.exists()
         logger.on_ok(out_atlas_final.name, "exist; Skip!")
         return
-    logger.on_log(VIBESeg_12)
+    logger.on_log(VIBESeg_12.name)
     poi_final = POI_Global(itk_coords=True)
     poi_final_leg = POI_Global(itk_coords=True)
     poi_final_leg.info["label_name"] = {}
@@ -730,11 +775,13 @@ def run_all(
         rib_pois = get_rib_info(
             img_file,
             rib_instance,
+            rib_spine=rib_spine,
             parent="derivatives-treg",
             compute_rib_special_cases=compute_rib_special_cases,
         )
     except AssertionError as e:
-        logger.on_fail(e)
+        logger.on_fail("AssertionError get_rib_info:", e)
+        raise
     # return
     if rib_pois is not None:
         poi_final.join_left_(rib_pois.to_cord_system(poi_final.itk_coords))
@@ -760,23 +807,14 @@ def run_all(
             if task.task_id in leg_keys:
                 from TPTBox.core.vert_constants import _ABBREVIATION_TO_ENUM
 
-                def mk_tuple(v):
-                    v = str(v).replace("(", "").replace(")", "").replace(" ", "").split(",")
-                    return int(v[0]), int(v[1])
-
-                m = {
-                    mk_tuple(v): (
-                        _ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id in ["leg-right", "leg-right-2", "leg-right-3"] else 100),
-                        _ABBREVIATION_TO_ENUM[k][1].value,
-                    )
-                    for v, k in poi.info["label_name"].items()
-                }
-                label_name = {
-                    f"({_ABBREVIATION_TO_ENUM[k][0].value + (0 if task.task_id in ['leg-right', 'leg-right-2', 'leg-right-3'] else 100)}, {_ABBREVIATION_TO_ENUM[k][1].value})": (
-                        k
-                    )
-                    for v, k in poi.info["label_name"].items()
-                }
+                offset = 0 if task.task_id in ["leg-right", "leg-right-2", "leg-right-3"] else 100
+                m: dict[tuple[int, int], tuple[int, int]] = {}
+                label_name: dict[str, str] = {}
+                for region, subregion, name in poi.iter_label_names():
+                    new_region = _ABBREVIATION_TO_ENUM[name][0].value + offset
+                    new_sub = _ABBREVIATION_TO_ENUM[name][1].value
+                    m[(region, subregion)] = (new_region, new_sub)
+                    label_name[f"({new_region}, {new_sub})"] = name
                 poi.map_labels_(label_map_full=m)
                 poi.info["label_name"] = label_name
 

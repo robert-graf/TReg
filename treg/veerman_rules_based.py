@@ -148,7 +148,12 @@ def stl_to_trimesh(cube: stl.mesh.Mesh) -> trimesh.Trimesh:
 _buffer = {}
 
 
-def get_stl(nii: NII, stem="fem_head", stl_folder: Path | None = None, side: Literal["R", "L"] = "L"):
+def get_stl(
+    nii: NII,
+    stem="fem_head",
+    stl_folder: Path | None = None,
+    side: Literal["R", "L"] = "L",
+):
 
     out = Path(stl_folder) / f"{stem}_{side}.stl" if stl_folder else None
     if out is not None and out in _buffer:
@@ -158,13 +163,22 @@ def get_stl(nii: NII, stem="fem_head", stl_folder: Path | None = None, side: Lit
     else:
         # nii.save(Path(stl_folder, "all.nii.gz"))
         stl = nii.to_stl(MESH_NAME_TO_ID[stem], out_path=out)
+        if stl is None:
+            return
         wrapper = MeshWrapper(stem, stl_to_trimesh(stl))
     if out is not None:
         _buffer[out] = wrapper
     return wrapper
 
 
-def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, side: Literal["R", "L"], verbose=True, allow_partial=False):
+def load_save_stls(
+    nii: "str | Path | NII",
+    results: dict,
+    stl_folder: Path,
+    side: Literal["R", "L"],
+    verbose=True,
+    allow_partial=False,
+):
     """Generate STL files from NII segmentation."""
     logger.info("=" * 60, verbose=verbose)
     logger.info("Load STLs", verbose=verbose)
@@ -184,13 +198,18 @@ def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, sid
             logger.on_fail(e)
         except ValueError as e:
             logger.on_fail(e)
+        except AttributeError as e:
+            logger.on_fail(e)
     if len(loaded) != len(EXPECTED_MESHES) and not allow_partial:
         missing = set(EXPECTED_MESHES) - set(loaded)
         raise AnalysisError(f"Missing meshes: {missing}")
-    logger.info(f"\n{'Mesh':<30} {'Vertices':>10} {'Faces':>10} {'BBox X':>10} {'BBox Y':>10} {'BBox Z':>10}", verbose=verbose)
+    logger.info(
+        f"\n{'Mesh':<30} {'Vertices':>10} {'Faces':>10} {'BBox X':>10} {'BBox Y':>10} {'BBox Z':>10}",
+        verbose=verbose,
+    )
     logger.info("-" * 82, verbose=verbose)
     for stem in EXPECTED_MESHES:
-        if stem not in results["meshes"]:
+        if stem not in results["meshes"] or results["meshes"][stem] is None:
             if allow_partial:
                 continue
             else:
@@ -200,7 +219,10 @@ def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, sid
         n_verts = len(coords)
         n_faces = len(wrapper.faces)
         bb_size = coords.max(axis=0) - coords.min(axis=0)
-        logger.info(f"{stem:<30} {n_verts:>10} {n_faces:>10} {bb_size[0]:>10.1f} {bb_size[1]:>10.1f} {bb_size[2]:>10.1f}", verbose=verbose)
+        logger.info(
+            f"{stem:<30} {n_verts:>10} {n_faces:>10} {bb_size[0]:>10.1f} {bb_size[1]:>10.1f} {bb_size[2]:>10.1f}",
+            verbose=verbose,
+        )
 
         if n_verts < 20:
             raise AnalysisError(f"{stem} has only {n_verts} vertices (< 20)")
@@ -226,7 +248,9 @@ def load_save_stls(nii: "str | Path | NII", results: dict, stl_folder: Path, sid
             logger.warning(w)
             results["warnings"].append(w)
 
-    logger.info(f"\nSTEP 1a COMPLETE: {len(loaded)} meshes loaded, side={side}", verbose=verbose)
+    logger.info(
+        f"\nSTEP 1a COMPLETE: {len(loaded)} meshes loaded, side={side}", verbose=verbose
+    )
 
 
 # =============================================================================
@@ -256,7 +280,9 @@ def get_FHC(
         out_poi.info["fem_head_radius"] = sph["radius"]
         out_poi.info["fem_head_rmse"] = sph["rmse"]
     if verbose:
-        logger.info(f"  Center: ({sph['center'][0]:.2f}, {sph['center'][1]:.2f}, {sph['center'][2]:.2f})")
+        logger.info(
+            f"  Center: ({sph['center'][0]:.2f}, {sph['center'][1]:.2f}, {sph['center'][2]:.2f})"
+        )
         logger.info(f"  Radius: {sph['radius']:.2f} mm")
         logger.info(f"  RMSE: {sph['rmse']:.4f} mm")
         logger.info(f"  Max residual: {sph['max_residual']:.4f} mm")
@@ -264,7 +290,9 @@ def get_FHC(
         logger.info(f"  Residual std: {sph['residual_std']:.4f} mm")
 
     if sph["rmse"] > 5.0:
-        logger.info(f"  Center: ({sph['center'][0]:.2f}, {sph['center'][1]:.2f}, {sph['center'][2]:.2f})")
+        logger.info(
+            f"  Center: ({sph['center'][0]:.2f}, {sph['center'][1]:.2f}, {sph['center'][2]:.2f})"
+        )
         logger.info(f"  Radius: {sph['radius']:.2f} mm")
         logger.info(f"  RMSE: {sph['rmse']:.4f} mm")
         logger.info(f"  Max residual: {sph['max_residual']:.4f} mm")
@@ -311,8 +339,17 @@ def _get_centroid(
                     mesh = get_stl(nii, stem=stem, stl_folder=stl_folder, side=side)
                 except ValueError:
                     return
+                except AttributeError:
+                    return
+                if mesh is None:
+                    return
             else:
-                mesh = MeshWrapper.concatenate([get_stl(nii, stem=s, stl_folder=stl_folder, side=side) for s in stem])
+                a = [
+                    get_stl(nii, stem=s, stl_folder=stl_folder, side=side) for s in stem
+                ]
+                if None in a:
+                    return
+                mesh = MeshWrapper.concatenate(a)
             neck_centroid = mesh.area_weighted_centroid()
             if out_poi is not None:
                 out_poi[POI_MAP[key]] = neck_centroid
@@ -320,16 +357,43 @@ def _get_centroid(
             return None
         except ValueError:
             return None
-    logger.info(f"{name} centroid: ({neck_centroid[0]:.2f}, {neck_centroid[1]:.2f}, {neck_centroid[2]:.2f})", verbose=verbose)
+        except AttributeError:
+            return None
+        except Exception:  # noqa: BLE001
+            logger.print_error()
+            return None
+    logger.info(
+        f"{name} centroid: ({neck_centroid[0]:.2f}, {neck_centroid[1]:.2f}, {neck_centroid[2]:.2f})",
+        verbose=verbose,
+    )
     return np.array(neck_centroid)
 
 
 get_FNC = partial(_get_centroid, stem="fem_neck", name="Femoral neck", key="FNC")
-get_TMCM = partial(_get_centroid, stem="tibia_plateau_medial", name="Medial plateau", key="TMCM")
-get_TLCL = partial(_get_centroid, stem="tibia_plateau_lateral", name="Lateral plateau centroid", key="TLCL")
-get_TMM = partial(_get_centroid, stem="ankle_malleolus_medial", name="Ankle medial malleolus", key="TMM")
-get_FLM = partial(_get_centroid, stem="ankle_malleolus_lateral", name="Ankle lateral malleolus", key="FLM")
-get_TAC = partial(_get_centroid, stem="ankle_malleolus_mid", name="Ankle plafond", key="TAC")
+get_TMCM = partial(
+    _get_centroid, stem="tibia_plateau_medial", name="Medial plateau", key="TMCM"
+)
+get_TLCL = partial(
+    _get_centroid,
+    stem="tibia_plateau_lateral",
+    name="Lateral plateau centroid",
+    key="TLCL",
+)
+get_TMM = partial(
+    _get_centroid,
+    stem="ankle_malleolus_medial",
+    name="Ankle medial malleolus",
+    key="TMM",
+)
+get_FLM = partial(
+    _get_centroid,
+    stem="ankle_malleolus_lateral",
+    name="Ankle lateral malleolus",
+    key="FLM",
+)
+get_TAC = partial(
+    _get_centroid, stem="ankle_malleolus_mid", name="Ankle plafond", key="TAC"
+)
 get_ankle_center = partial(
     _get_centroid,
     stem=["ankle_malleolus_medial", "ankle_malleolus_lateral", "ankle_malleolus_mid"],
@@ -353,6 +417,8 @@ def get_TKC(
     logger.info() if verbose else None
     med_plat_centroid = _p1(nii, out_poi, stl_folder, side, warnings, verbose)
     lat_plat_centroid = _p2(nii, out_poi, stl_folder, side, warnings, verbose)
+    if med_plat_centroid is None or lat_plat_centroid is None:
+        return
     prox_tib_center = (med_plat_centroid + lat_plat_centroid) / 2.0
     if out_poi is not None:
         out_poi[POI_MAP[_key]] = prox_tib_center
@@ -365,11 +431,19 @@ def get_TKC(
 
 get_TRMP = partial(_get_centroid, stem="fem_trochlea_medial", name=None, key="TRMP")
 get_TRLP = partial(_get_centroid, stem="fem_trochlea_lateral", name=None, key="TRLP")
-get_TGCP = partial(get_TKC, _name="trochlea_center", _p1=get_TRMP, _p2=get_TRLP, _key="TGCP")
+get_TGCP = partial(
+    get_TKC, _name="trochlea_center", _p1=get_TRMP, _p2=get_TRLP, _key="TGCP"
+)
 
-get_FLCD = partial(_get_centroid, stem="fem_condyle_lateral", name="Ankle plafond", key="FLCD")
-get_FMCD = partial(_get_centroid, stem="fem_condyle_medial", name="Ankle plafond", key="FMCD")
-get_FNP = partial(get_TKC, _name="trochlea_center", _p1=get_FLCD, _p2=get_FMCD, _key="FNP")
+get_FLCD = partial(
+    _get_centroid, stem="fem_condyle_lateral", name="Ankle plafond", key="FLCD"
+)
+get_FMCD = partial(
+    _get_centroid, stem="fem_condyle_medial", name="Ankle plafond", key="FMCD"
+)
+get_FNP = partial(
+    get_TKC, _name="trochlea_center", _p1=get_FLCD, _p2=get_FMCD, _key="FNP"
+)
 
 
 def compute_points(
@@ -402,18 +476,27 @@ def compute_points(
     print()
     get_TGCP(nii, poi, stl_folder, side, warnings, verbose)
     get_FNP(nii, poi, stl_folder, side, warnings, verbose)
-    poi.info["cranial_dir"] = _comp_dir(poi, "FHC", "ankle_center", name="Anatomical cranial")
+    poi.info["cranial_dir"] = _comp_dir(
+        poi, "FHC", "ankle_center", name="Anatomical cranial"
+    )
+    # If fem_condyle_medial/fem_condyle_lateral missing, nothing can be computed, so we can just return
     ## Cylinder
-    posterior_dir = _comp_dir(poi, "FNP", "TGCP", name="Posterior direction (trochlea->condyle)")
+    posterior_dir = _comp_dir(
+        poi, "FNP", "TGCP", name="Posterior direction (trochlea->condyle)"
+    )
     posterior_pts_all = []
     for condyle_name in ["fem_condyle_medial", "fem_condyle_lateral"]:
         wrapper = get_stl(nii, stem=condyle_name, stl_folder=stl_folder, side=side)
+        if wrapper is None:
+            return
         pts = wrapper.vertices
         centroid = wrapper.area_weighted_centroid()
         offsets = pts - centroid
         posterior_proj = np.dot(offsets, posterior_dir)
         posterior_pts = pts[posterior_proj > 0]
-        logger.info(f"{condyle_name}: {len(pts)} total vertices, {len(posterior_pts)} posterior")
+        logger.info(
+            f"{condyle_name}: {len(pts)} total vertices, {len(posterior_pts)} posterior"
+        )
         posterior_pts_all.append(posterior_pts)
     all_posterior = np.vstack(posterior_pts_all)
     logger.info(f"Total posterior vertices for cylinder fit: {len(all_posterior)}")
@@ -448,14 +531,26 @@ def compute_points(
     poi[POI_MAP["cylinder-radius-point-2"]] = center - radius * ortho
     poi[POI_MAP["cylinder-radius-point-3"]] = center + radius * ortho2
     poi[POI_MAP["cylinder-radius-point-4"]] = center - radius * ortho2
-    poi[POI_MAP["cylinder-radius-point-5"]] = center + radius * (ortho + ortho2) / n_diag
-    poi[POI_MAP["cylinder-radius-point-6"]] = center - radius * (ortho + ortho2) / n_diag
-    poi[POI_MAP["cylinder-radius-point-7"]] = center + radius * (ortho - ortho2) / n_diag
-    poi[POI_MAP["cylinder-radius-point-8"]] = center - radius * (ortho - ortho2) / n_diag
+    poi[POI_MAP["cylinder-radius-point-5"]] = (
+        center + radius * (ortho + ortho2) / n_diag
+    )
+    poi[POI_MAP["cylinder-radius-point-6"]] = (
+        center - radius * (ortho + ortho2) / n_diag
+    )
+    poi[POI_MAP["cylinder-radius-point-7"]] = (
+        center + radius * (ortho - ortho2) / n_diag
+    )
+    poi[POI_MAP["cylinder-radius-point-8"]] = (
+        center - radius * (ortho - ortho2) / n_diag
+    )
 
     logger.info("\nCylinder fit results:")
-    logger.info(f"  Axis: ({cyl['axis'][0]:.4f}, {cyl['axis'][1]:.4f}, {cyl['axis'][2]:.4f})")
-    logger.info(f"  Point (local): ({cyl['point'][0]:.2f}, {cyl['point'][1]:.2f}, {cyl['point'][2]:.2f})")
+    logger.info(
+        f"  Axis: ({cyl['axis'][0]:.4f}, {cyl['axis'][1]:.4f}, {cyl['axis'][2]:.4f})"
+    )
+    logger.info(
+        f"  Point (local): ({cyl['point'][0]:.2f}, {cyl['point'][1]:.2f}, {cyl['point'][2]:.2f})"
+    )
     logger.info(f"  Radius: {cyl['radius']:.2f} mm")
     logger.info(f"  RMSE: {cyl['rmse']:.4f} mm")
     logger.info(f"  Max residual: {cyl['max_residual']:.4f} mm")
@@ -475,8 +570,12 @@ def compute_points(
         w = f"WARN: Cylinder mean signed residual {cyl['mean_signed_residual']:.4f} > 1 mm"
         logger.warning(w)
         warnings.append(w)
-    condyle_line_norm = _comp_dir(poi, "FMCD", "FLCD", name="condyle_line_norm", verbose=False)
-    axis_angle_to_condyle = math.degrees(math.acos(min(1.0, abs(np.dot(cyl["axis"], condyle_line_norm)))))
+    condyle_line_norm = _comp_dir(
+        poi, "FMCD", "FLCD", name="condyle_line_norm", verbose=False
+    )
+    axis_angle_to_condyle = math.degrees(
+        math.acos(min(1.0, abs(np.dot(cyl["axis"], condyle_line_norm))))
+    )
     logger.info(f"  Axis angle to condyle line: {axis_angle_to_condyle:.1f} deg")
     if axis_angle_to_condyle > 15:
         w = f"WARN: Cylinder axis-to-condyle-line angle {axis_angle_to_condyle:.1f} > 15 deg"
@@ -488,7 +587,10 @@ def compute_points(
     axis_pt = cyl["point"]
 
     all_cond_pts = np.vstack(
-        [get_stl(nii, "fem_condyle_medial", stl_folder, side).vertices, get_stl(nii, "fem_condyle_lateral", stl_folder, side).vertices]
+        [
+            get_stl(nii, "fem_condyle_medial", stl_folder, side).vertices,
+            get_stl(nii, "fem_condyle_lateral", stl_folder, side).vertices,
+        ]
     )
     max_extent = np.ptp(all_cond_pts, axis=0).max()
     ray_distance = max_extent * 2.0
@@ -516,8 +618,12 @@ def compute_points(
     grid_dirs = np.array(ray_dirs_list)
 
     all_hit_projs = []
+
     for condyle_name in ["fem_condyle_medial", "fem_condyle_lateral"]:
         wrapper = get_stl(nii, condyle_name, stl_folder, side)
+        if wrapper is None:
+            return
+
         hits_before = len(all_hit_projs)
         locs, idx_ray, idx_tri = wrapper._tm.ray.intersects_location(
             ray_origins=grid_origins,
@@ -529,15 +635,17 @@ def compute_points(
             all_hit_projs.extend(projs.tolist())
         condyle_hits = len(all_hit_projs) - hits_before
         n_rays_hit = len(np.unique(idx_ray)) if len(locs) > 0 else 0
-        logger.info(f"  {condyle_name}: {condyle_hits} ray-cast hits ({n_rays_hit}/{len(grid_origins)} rays)")
-
+        logger.info(
+            f"  {condyle_name}: {condyle_hits} ray-cast hits ({n_rays_hit}/{len(grid_origins)} rays)"
+        )
     if len(all_hit_projs) < 2:
-        logger.warning("Grid ray-cast found < 2 hits — falling back to vertex projection")
+        logger.warning(
+            "Grid ray-cast found < 2 hits — falling back to vertex projection"
+        )
         for condyle_name in ["fem_condyle_medial", "fem_condyle_lateral"]:
             pts = get_stl(nii, condyle_name, stl_folder, side).vertices
             projections = np.dot(pts - axis_pt, axis_dir)
             all_hit_projs.extend([projections.min(), projections.max()])
-
     all_min_proj = min(all_hit_projs)
     all_max_proj = max(all_hit_projs)
     mid_proj = (all_min_proj + all_max_proj) / 2.0
@@ -550,7 +658,9 @@ def compute_points(
     poi[POI_MAP["dist_fem_center-ray1"]] = p1
     poi[POI_MAP["dist_fem_center-ray2"]] = p2
 
-    logger.info(f"\nDistal femoral center : ({dist_fem_center[0]:.2f}, {dist_fem_center[1]:.2f}, {dist_fem_center[2]:.2f})")
+    logger.info(
+        f"\nDistal femoral center : ({dist_fem_center[0]:.2f}, {dist_fem_center[1]:.2f}, {dist_fem_center[2]:.2f})"
+    )
     logger.info(f"  Ray-cast intersection 1 : ({p1[0]:.2f}, {p1[1]:.2f}, {p1[2]:.2f})")
     logger.info(f"  Ray-cast intersection 2: ({p2[0]:.2f}, {p2[1]:.2f}, {p2[2]:.2f})")
     logger.info(f"  Condylar width: {norm(p1 - p2):.2f} mm")
@@ -563,7 +673,10 @@ def _comp_dir(poi, name1, name2, name="Anatomical cranial", verbose=True):
         return None
     cranial_vec = np.array(poi[POI_MAP[name1]]) - np.array(poi[POI_MAP[name2]])
     cranial_dir = cranial_vec / norm(cranial_vec)
-    logger.info(f"{name} direction: ({cranial_dir[0]:.4f}, {cranial_dir[1]:.4f}, {cranial_dir[2]:.4f})", verbose=verbose)
+    logger.info(
+        f"{name} direction: ({cranial_dir[0]:.4f}, {cranial_dir[1]:.4f}, {cranial_dir[2]:.4f})",
+        verbose=verbose,
+    )
     return cranial_dir
 
 
@@ -656,12 +769,20 @@ def step_3(poi: POI_Global, allow_partial=False):
     # lateral component of anterior_anat (relevant in patients with
     # lateralized trochlea, e.g. dysplasia), making the (X, Y, Z) basis
     # non-orthogonal and breaking sign rules that rely on fem_Y direction.
-    fem_Y = anterior_anat - np.dot(anterior_anat, fem_Z) * fem_Z - np.dot(anterior_anat, fem_X) * fem_X
+    fem_Y = (
+        anterior_anat
+        - np.dot(anterior_anat, fem_Z) * fem_Z
+        - np.dot(anterior_anat, fem_X) * fem_X
+    )
     fem_Y_norm = norm(fem_Y)
     if fem_Y_norm < 1e-10:
-        raise AnalysisError("anterior_anat aligned with fem_Z or fem_X — cannot define orthogonal fem_Y")
+        raise AnalysisError(
+            "anterior_anat aligned with fem_Z or fem_X — cannot define orthogonal fem_Y"
+        )
     fem_Y = fem_Y / fem_Y_norm
-    assert abs(np.dot(fem_X, fem_Y)) < 1e-6, "fem_X . fem_Y must be ~0 after Gram-Schmidt"
+    assert abs(np.dot(fem_X, fem_Y)) < 1e-6, (
+        "fem_X . fem_Y must be ~0 after Gram-Schmidt"
+    )
 
     results["fem_cs"] = {"origin": dist_fem, "X": fem_X, "Y": fem_Y, "Z": fem_Z}
 
@@ -688,12 +809,20 @@ def step_3(poi: POI_Global, allow_partial=False):
     # opposite anatomical directions for left vs right legs and causes
     # TTA, posterior_slope_*, mMPPTA, mLPPTA, PTJ_AP* to flip sign by side.
     # Gram-Schmidt against tib_X for orthonormality of the (X, Y, Z) basis.
-    tib_Y = anterior_anat - np.dot(anterior_anat, tib_Z) * tib_Z - np.dot(anterior_anat, tib_X) * tib_X
+    tib_Y = (
+        anterior_anat
+        - np.dot(anterior_anat, tib_Z) * tib_Z
+        - np.dot(anterior_anat, tib_X) * tib_X
+    )
     tib_Y_norm = norm(tib_Y)
     if tib_Y_norm < 1e-10:
-        raise AnalysisError("anterior_anat aligned with tib_Z or tib_X — cannot define orthogonal tib_Y")
+        raise AnalysisError(
+            "anterior_anat aligned with tib_Z or tib_X — cannot define orthogonal tib_Y"
+        )
     tib_Y = tib_Y / tib_Y_norm
-    assert abs(np.dot(tib_X, tib_Y)) < 1e-6, "tib_X . tib_Y must be ~0 after Gram-Schmidt"
+    assert abs(np.dot(tib_X, tib_Y)) < 1e-6, (
+        "tib_X . tib_Y must be ~0 after Gram-Schmidt"
+    )
     results["tib_cs"] = {"origin": prox_tib, "X": tib_X, "Y": tib_Y, "Z": tib_Z}
 
     logger.info("\nTibial CS (origin = prox_tib_center):")
@@ -711,11 +840,15 @@ def step_3(poi: POI_Global, allow_partial=False):
     # between left and right legs by construction. This is expected and
     # required for measurements like TTA and posterior slope to be
     # side-invariant. Logged for transparency, not raised as an error.
-    logger.info(f"Handedness: fem={fem_hand} ({fem_rh:+.4f}), tib={tib_hand} ({tib_rh:+.4f})")
+    logger.info(
+        f"Handedness: fem={fem_hand} ({fem_rh:+.4f}), tib={tib_hand} ({tib_rh:+.4f})"
+    )
 
     fem_Z_align = np.dot(fem_Z, cranial_dir)
     tib_Z_align = np.dot(tib_Z, cranial_dir)
-    logger.info(f"Z cranial check: fem_Z·cranial={fem_Z_align:.4f}, tib_Z·cranial={tib_Z_align:.4f} (should be > 0.9)")
+    logger.info(
+        f"Z cranial check: fem_Z·cranial={fem_Z_align:.4f}, tib_Z·cranial={tib_Z_align:.4f} (should be > 0.9)"
+    )
     if fem_Z_align < 0.7 and not allow_partial:
         raise AnalysisError(f"Femoral Z·cranial={fem_Z_align:.4f} < 0.7")
     elif fem_Z_align < 0.9:
@@ -730,8 +863,12 @@ def step_3(poi: POI_Global, allow_partial=False):
         results["warnings"].append(w)
 
     # --- Knee extension check ---
-    mfa_2d = np.array([np.dot(mech_fem_axis_unit, fem_Y), np.dot(mech_fem_axis_unit, fem_Z)])
-    mta_2d = np.array([np.dot(mech_tib_axis_unit, fem_Y), np.dot(mech_tib_axis_unit, fem_Z)])
+    mfa_2d = np.array(
+        [np.dot(mech_fem_axis_unit, fem_Y), np.dot(mech_fem_axis_unit, fem_Z)]
+    )
+    mta_2d = np.array(
+        [np.dot(mech_tib_axis_unit, fem_Y), np.dot(mech_tib_axis_unit, fem_Z)]
+    )
     mfa_2d_len = norm(mfa_2d)
     mta_2d_len = norm(mta_2d)
     if mfa_2d_len > 1e-10 and mta_2d_len > 1e-10:
@@ -831,7 +968,10 @@ def step_4(poi: POI_Global, allow_partial=False):
     # A) DISTAL FEMORAL JOINT ORIENTATION (DFJ)
     # =====================================================================
     logger.info("\n--- Distal femoral condylar orientation (DFJ) ---")
-    for condyle_name, label in [("fem_condyle_medial", "med"), ("fem_condyle_lateral", "lat")]:
+    for condyle_name, label in [
+        ("fem_condyle_medial", "med"),
+        ("fem_condyle_lateral", "lat"),
+    ]:
         pts = meshes[condyle_name].vertices
         projections = np.dot(pts - dist_fem, fem_Z)
         n_distal = max(1, math.ceil(len(pts) * 0.02))
@@ -857,7 +997,9 @@ def step_4(poi: POI_Global, allow_partial=False):
     lat_plat = results["lat_plateau_centroid"]
     ptj_unit = (lat_plat - med_plat) / norm(lat_plat - med_plat)
     results["ptj_line"] = ptj_unit
-    logger.info(f"  PTJ direction: ({ptj_unit[0]:.4f}, {ptj_unit[1]:.4f}, {ptj_unit[2]:.4f})")
+    logger.info(
+        f"  PTJ direction: ({ptj_unit[0]:.4f}, {ptj_unit[1]:.4f}, {ptj_unit[2]:.4f})"
+    )
 
     # =====================================================================
     # C) SUPRACONDYLAR FEMORAL JOINT ORIENTATION (SFJ)
@@ -880,22 +1022,38 @@ def step_4(poi: POI_Global, allow_partial=False):
     sfj_normal = supra_plane["normal"]
     results["sfj_normal"] = sfj_normal
     results["sfj_centroid"] = supra_plane["centroid"]
-    logger.info(f"  SFJ plane normal: ({sfj_normal[0]:.4f}, {sfj_normal[1]:.4f}, {sfj_normal[2]:.4f}), RMSE={supra_plane['rmse']:.2f} mm")
+    logger.info(
+        f"  SFJ plane normal: ({sfj_normal[0]:.4f}, {sfj_normal[1]:.4f}, {sfj_normal[2]:.4f}), RMSE={supra_plane['rmse']:.2f} mm"
+    )
 
     # =====================================================================
     # D) TIBIAL PLATEAU PLANES
     # =====================================================================
     logger.info("\n--- Tibial plateau orientations ---")
     plateau_planes = {}
-    for plat_name, label in [("tibia_plateau_medial", "medial"), ("tibia_plateau_lateral", "lateral")]:
+    for plat_name, label in [
+        ("tibia_plateau_medial", "medial"),
+        ("tibia_plateau_lateral", "lateral"),
+    ]:
         pts = meshes[plat_name].vertices
         plane = fit_plane(pts, orient_toward=tib_Z)
-        plateau_planes[label] = {"normal": plane["normal"], "centroid": plane["centroid"], "rmse": plane["rmse"]}
+        plateau_planes[label] = {
+            "normal": plane["normal"],
+            "centroid": plane["centroid"],
+            "rmse": plane["rmse"],
+        }
         pn = plane["normal"]
-        logger.info(f"  {label} plateau: normal=({pn[0]:.4f}, {pn[1]:.4f}, {pn[2]:.4f}), RMSE={plane['rmse']:.4f} mm")
+        logger.info(
+            f"  {label} plateau: normal=({pn[0]:.4f}, {pn[1]:.4f}, {pn[2]:.4f}), RMSE={plane['rmse']:.4f} mm"
+        )
 
     combined_plane = fit_plane(
-        np.vstack([meshes["tibia_plateau_medial"].vertices, meshes["tibia_plateau_lateral"].vertices]),
+        np.vstack(
+            [
+                meshes["tibia_plateau_medial"].vertices,
+                meshes["tibia_plateau_lateral"].vertices,
+            ]
+        ),
         orient_toward=tib_Z,
     )
     plateau_planes["combined"] = {
@@ -929,18 +1087,30 @@ def step_4(poi: POI_Global, allow_partial=False):
 
     mfa_cor = _project_2d(mech_fem_unit, leg_X, leg_Z)
     dfj_cor = _project_2d(dfj_unit, leg_X, leg_Z)
-    mldfa = math.degrees(math.atan2(abs(dfj_cor[0] * mfa_cor[1] - dfj_cor[1] * mfa_cor[0]), np.dot(dfj_cor, mfa_cor)))
+    mldfa = math.degrees(
+        math.atan2(
+            abs(dfj_cor[0] * mfa_cor[1] - dfj_cor[1] * mfa_cor[0]),
+            np.dot(dfj_cor, mfa_cor),
+        )
+    )
     angles["mLDFA"] = mldfa
     logger.info(f"  mLDFA: {mldfa:.1f} deg")
 
     mta_cor = _project_2d(mech_tib_unit, leg_X, leg_Z)
     ptj_cor = _project_2d(ptj_unit, leg_X, leg_Z)
-    mmpta = math.degrees(math.atan2(abs(ptj_cor[0] * mta_cor[1] - ptj_cor[1] * mta_cor[0]), np.dot(ptj_cor, mta_cor)))
+    mmpta = math.degrees(
+        math.atan2(
+            abs(ptj_cor[0] * mta_cor[1] - ptj_cor[1] * mta_cor[0]),
+            np.dot(ptj_cor, mta_cor),
+        )
+    )
     angles["mMPTA"] = mmpta
     logger.info(f"  mMPTA: {mmpta:.1f} deg")
 
     deviation = math.degrees(math.acos(np.clip(np.dot(mfa_cor, mta_cor), -1.0, 1.0)))
-    cross_2d = mfa_cor[0] * mta_cor[1] - mfa_cor[1] * mta_cor[0]  # * (-1.0 if side == "R" else 1.0)
+    cross_2d = (
+        mfa_cor[0] * mta_cor[1] - mfa_cor[1] * mta_cor[0]
+    )  # * (-1.0 if side == "R" else 1.0)
     if cross_2d > 0:
         deviation = -deviation
     angles["HKAA"] = 180.0 - deviation
@@ -967,25 +1137,39 @@ def step_4(poi: POI_Global, allow_partial=False):
     med_normal = plateau_planes["medial"]["normal"]
     lat_normal = plateau_planes["lateral"]["normal"]
 
-    angles["mMPPTA"] = _sagittal_posterior_angle(mech_tib_unit, med_normal, tib_Y, tib_Z)
-    angles["mLPPTA"] = _sagittal_posterior_angle(mech_tib_unit, lat_normal, tib_Y, tib_Z)
+    angles["mMPPTA"] = _sagittal_posterior_angle(
+        mech_tib_unit, med_normal, tib_Y, tib_Z
+    )
+    angles["mLPPTA"] = _sagittal_posterior_angle(
+        mech_tib_unit, lat_normal, tib_Y, tib_Z
+    )
     angles["mPDFA"] = _sagittal_posterior_angle(mech_fem_unit, sfj_normal, fem_Y, fem_Z)
-    logger.info(f"  mMPPTA: {angles['mMPPTA']:.1f} deg | mLPPTA: {angles['mLPPTA']:.1f} deg | mPDFA: {angles['mPDFA']:.1f} deg")
+    logger.info(
+        f"  mMPPTA: {angles['mMPPTA']:.1f} deg | mLPPTA: {angles['mLPPTA']:.1f} deg | mPDFA: {angles['mPDFA']:.1f} deg"
+    )
 
     for label in ["medial", "lateral", "combined"]:
         pn = plateau_planes[label]["normal"]
         slope = math.degrees(math.atan2(-np.dot(pn, tib_Y), np.dot(pn, tib_Z)))
         angles[f"posterior_slope_{label}"] = slope
-        logger.info(f"  Posterior slope ({label}): {slope:.1f} deg (positive = posterior tilt)")
+        logger.info(
+            f"  Posterior slope ({label}): {slope:.1f} deg (positive = posterior tilt)"
+        )
 
     # =====================================================================
     # G) PTJ AP ORIENTATION
     # =====================================================================
     logger.info("\n--- PTJ AP orientation ---")
 
-    angles["PTJ_APM"] = math.degrees(math.atan2(-np.dot(med_normal, tib_Y), np.dot(med_normal, tib_Z)))
-    angles["PTJ_APL"] = math.degrees(math.atan2(-np.dot(lat_normal, tib_Y), np.dot(lat_normal, tib_Z)))
-    logger.info(f"  PTJ APM: {angles['PTJ_APM']:.1f} deg | PTJ APL: {angles['PTJ_APL']:.1f} deg")
+    angles["PTJ_APM"] = math.degrees(
+        math.atan2(-np.dot(med_normal, tib_Y), np.dot(med_normal, tib_Z))
+    )
+    angles["PTJ_APL"] = math.degrees(
+        math.atan2(-np.dot(lat_normal, tib_Y), np.dot(lat_normal, tib_Z))
+    )
+    logger.info(
+        f"  PTJ APM: {angles['PTJ_APM']:.1f} deg | PTJ APL: {angles['PTJ_APL']:.1f} deg"
+    )
 
     # =====================================================================
     # H) FEMORAL VERSION (FVA) & TIBIAL TORSION (TTA)
@@ -1017,7 +1201,9 @@ def step_4(poi: POI_Global, allow_partial=False):
         raise AnalysisError("Cylinder axis aligned with femoral Z")
     dist_projected = dist_projected / norm(dist_projected)
 
-    version_angle = math.degrees(math.acos(np.clip(np.dot(prox_projected, dist_projected), -1.0, 1.0)))
+    version_angle = math.degrees(
+        math.acos(np.clip(np.dot(prox_projected, dist_projected), -1.0, 1.0))
+    )
     delta_anterior_fva = np.dot(prox_projected - dist_projected, fem_Y)
     if delta_anterior_fva < 0:
         version_angle = -version_angle
@@ -1039,7 +1225,9 @@ def step_4(poi: POI_Global, allow_partial=False):
         raise AnalysisError("Intermalleolar axis aligned with tibial Z")
     dist_tib_projected = dist_tib_projected / norm(dist_tib_projected)
 
-    torsion_angle = math.degrees(math.acos(np.clip(np.dot(prox_tib_projected, dist_tib_projected), -1.0, 1.0)))
+    torsion_angle = math.degrees(
+        math.acos(np.clip(np.dot(prox_tib_projected, dist_tib_projected), -1.0, 1.0))
+    )
     delta_anterior_tta = np.dot(prox_tib_projected - dist_tib_projected, tib_Y)
     if delta_anterior_tta < 0:
         torsion_angle = -torsion_angle
@@ -1084,8 +1272,12 @@ def step_4(poi: POI_Global, allow_partial=False):
             logger.warning(w)
             results["warnings"].append(w)
         else:
-            logger.error(f"FAIL: {angle_name}: {val:.1f} deg outside physiological range ({lo_f}-{hi_f})")
-            results["warnings"].append(f"FAIL: {angle_name}: {val:.1f} deg outside physiological range")
+            logger.error(
+                f"FAIL: {angle_name}: {val:.1f} deg outside physiological range ({lo_f}-{hi_f})"
+            )
+            results["warnings"].append(
+                f"FAIL: {angle_name}: {val:.1f} deg outside physiological range"
+            )
 
     logger.info("\n--- All angles summary ---")
     for name, val in sorted(angles.items()):
@@ -1109,16 +1301,34 @@ def step_5(poi: POI_Global, results, output_path=None):
     logger.info("STEP 5: Export Results (global coordinates)")
     logger.info("=" * 60)
 
-    required = ["stl_folder", "angles", "fem_head_center", "dist_fem_center", "prox_tib_center", "ankle_center", "side"]
+    required = [
+        "stl_folder",
+        "angles",
+        "fem_head_center",
+        "dist_fem_center",
+        "prox_tib_center",
+        "ankle_center",
+        "side",
+    ]
     _check_required_keys(results, required, "step_5")
 
     if output_path is None:
-        output_path = os.path.join(os.path.dirname(results["stl_folder"]), "veerman_analysis_results.csv")
+        output_path = os.path.join(
+            os.path.dirname(results["stl_folder"]), "veerman_analysis_results.csv"
+        )
 
     rows = []
     warnings_dict = {}
     for w in results.get("warnings", []):
-        for key in ["fem_head", "cylinder", "ankle", "slope", "version", "torsion", "mHKA"]:
+        for key in [
+            "fem_head",
+            "cylinder",
+            "ankle",
+            "slope",
+            "version",
+            "torsion",
+            "mHKA",
+        ]:
             if key.lower() in w.lower():
                 warnings_dict.setdefault(key, []).append(w)
 
@@ -1183,7 +1393,11 @@ def step_5(poi: POI_Global, results, output_path=None):
         radius=poi.info.get("fem_head_radius"),
         desc="Sphere fit to fem_head",
     )
-    _add_center_row("fem_neck_center", results["fem_neck_center"], desc="Area-weighted centroid of fem_neck")
+    _add_center_row(
+        "fem_neck_center",
+        results["fem_neck_center"],
+        desc="Area-weighted centroid of fem_neck",
+    )
     _add_center_row(
         "dist_fem_center",
         np.array(poi.info.get("dist_fem_center", results["dist_fem_center"])),
@@ -1191,17 +1405,45 @@ def step_5(poi: POI_Global, results, output_path=None):
         radius=poi.info.get("cylinder_radius"),
         desc="Cylinder axis ray-cast midpoint",
     )
-    _add_center_row("prox_tib_center", results["prox_tib_center"], desc="Midpoint of plateau centroids")
-    _add_center_row("ankle_center", results["ankle_center"], desc="Area-weighted centroid of all 3 ankle surfaces combined")
-    _add_center_row("med_plateau_centroid", results["med_plateau_centroid"], desc="Area-weighted centroid of medial plateau")
-    _add_center_row("lat_plateau_centroid", results["lat_plateau_centroid"], desc="Area-weighted centroid of lateral plateau")
-    _add_center_row("ankle_med_centroid", results["ankle_med_centroid"], desc="Medial malleolus centroid")
-    _add_center_row("ankle_lat_centroid", results["ankle_lat_centroid"], desc="Lateral malleolus centroid")
-    _add_center_row("ankle_mid_centroid", results["ankle_mid_centroid"], desc="Plafond centroid")
+    _add_center_row(
+        "prox_tib_center",
+        results["prox_tib_center"],
+        desc="Midpoint of plateau centroids",
+    )
+    _add_center_row(
+        "ankle_center",
+        results["ankle_center"],
+        desc="Area-weighted centroid of all 3 ankle surfaces combined",
+    )
+    _add_center_row(
+        "med_plateau_centroid",
+        results["med_plateau_centroid"],
+        desc="Area-weighted centroid of medial plateau",
+    )
+    _add_center_row(
+        "lat_plateau_centroid",
+        results["lat_plateau_centroid"],
+        desc="Area-weighted centroid of lateral plateau",
+    )
+    _add_center_row(
+        "ankle_med_centroid",
+        results["ankle_med_centroid"],
+        desc="Medial malleolus centroid",
+    )
+    _add_center_row(
+        "ankle_lat_centroid",
+        results["ankle_lat_centroid"],
+        desc="Lateral malleolus centroid",
+    )
+    _add_center_row(
+        "ankle_mid_centroid", results["ankle_mid_centroid"], desc="Plafond centroid"
+    )
 
     # --- Axes (dimensionless) ---
     if "cylinder_axis" in results:
-        _add_axis_row("cylinder_axis", results["cylinder_axis"], desc="PCA-derived cylinder axis")
+        _add_axis_row(
+            "cylinder_axis", results["cylinder_axis"], desc="PCA-derived cylinder axis"
+        )
     if "fem_cs" in results:
         cs = results["fem_cs"]
         _add_axis_row("fem_cs_X", cs["X"], desc="Femoral CS X-axis (lateral)")
@@ -1236,7 +1478,18 @@ def step_5(poi: POI_Global, results, output_path=None):
         _add_angle_row(name, val, desc=angle_descriptions.get(name, ""))
 
     # --- Write CSV ---
-    fieldnames = ["parameter", "type", "x_mm", "y_mm", "z_mm", "angle_deg", "rmse_mm", "radius_mm", "description", "warnings"]
+    fieldnames = [
+        "parameter",
+        "type",
+        "x_mm",
+        "y_mm",
+        "z_mm",
+        "angle_deg",
+        "rmse_mm",
+        "radius_mm",
+        "description",
+        "warnings",
+    ]
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -1250,12 +1503,18 @@ def step_5(poi: POI_Global, results, output_path=None):
     case_name = os.path.basename(os.path.dirname(results["stl_folder"]))
     logger.info(f"\n{'=' * 60}")
     logger.info(f"Case: {case_name} | Side: {side}")
-    logger.info(f"  HKAA: {a.get('HKAA', float('nan')):.1f} deg | mHKA: {a.get('mHKA', float('nan')):.1f} deg")
-    logger.info(f"  mLDFA: {a.get('mLDFA', float('nan')):.1f} deg | mMPTA: {a.get('mMPTA', float('nan')):.1f} deg")
+    logger.info(
+        f"  HKAA: {a.get('HKAA', float('nan')):.1f} deg | mHKA: {a.get('mHKA', float('nan')):.1f} deg"
+    )
+    logger.info(
+        f"  mLDFA: {a.get('mLDFA', float('nan')):.1f} deg | mMPTA: {a.get('mMPTA', float('nan')):.1f} deg"
+    )
     logger.info(
         f"  mPDFA: {a.get('mPDFA', float('nan')):.1f} deg | mMPPTA: {a.get('mMPPTA', float('nan')):.1f} deg | mLPPTA: {a.get('mLPPTA', float('nan')):.1f} deg"
     )
-    logger.info(f"  FVA: {a.get('FVA', float('nan')):.1f} deg | TTA: {a.get('TTA', float('nan')):.1f} deg")
+    logger.info(
+        f"  FVA: {a.get('FVA', float('nan')):.1f} deg | TTA: {a.get('TTA', float('nan')):.1f} deg"
+    )
     logger.info(
         f"  Med slope: {a.get('posterior_slope_medial', float('nan')):.1f} deg | Lat slope: {a.get('posterior_slope_lateral', float('nan')):.1f} deg"
     )
@@ -1361,7 +1620,11 @@ def run_single_case(
     stl_folder = Path(stl_folder)
 
     angle_lines: list[MKR_Lines] = [
-        {"key_points": [POI_MAP["FHC"], (4, 5)], "color": color_from_idx(1), "name": "Mikulicz line [FHC-ankle]"},
+        {
+            "key_points": [POI_MAP["FHC"], (4, 5)],
+            "color": color_from_idx(1),
+            "name": "Mikulicz line [FHC-ankle]",
+        },
         {
             "key_points": [POI_MAP["dist_fem_center"], POI_MAP["dist_fem_center-ray1"]],
             "color": color_from_idx(2),
@@ -1372,17 +1635,33 @@ def run_single_case(
             "color": color_from_idx(2),
             "name": "dist_fem_center ray-2",
         },
-        {"key_points": [POI_MAP["FHC"], POI_MAP["dist_fem_center"]], "color": color_from_idx(3), "name": "Mechanical femoral axis"},
-        {"key_points": [POI_MAP["TKC"], POI_MAP["ankle_center"]], "color": color_from_idx(3), "name": "Mechanical tibial axis"},
+        {
+            "key_points": [POI_MAP["FHC"], POI_MAP["dist_fem_center"]],
+            "color": color_from_idx(3),
+            "name": "Mechanical femoral axis",
+        },
+        {
+            "key_points": [POI_MAP["TKC"], POI_MAP["ankle_center"]],
+            "color": color_from_idx(3),
+            "name": "Mechanical tibial axis",
+        },
     ]
 
     nii = to_nii(nii, True)
 
     poi = nii.make_empty_POI().to_global(itk_coords=False)
     poi.info["label_name"] = {f"({k1}, {k2})": v for v, (k1, k2) in POI_MAP.items()}
-    poi.info["label_group_name"] = {"1": "Femur proximal", "2": "Femur distal", "3": "Tibia proximal", "4": "Tibia distal", "5": "Patella"}
+    poi.info["label_group_name"] = {
+        "1": "Femur proximal",
+        "2": "Femur distal",
+        "3": "Tibia proximal",
+        "4": "Tibia distal",
+        "5": "Patella",
+    }
     poi.info["warnings"] = []
-    load_save_stls(nii, poi.info, stl_folder, side, verbose=verbose, allow_partial=allow_partial)
+    load_save_stls(
+        nii, poi.info, stl_folder, side, verbose=verbose, allow_partial=allow_partial
+    )
     compute_points(nii, poi, stl_folder, side, poi.info["warnings"], verbose=verbose)
 
     def arr(key):
